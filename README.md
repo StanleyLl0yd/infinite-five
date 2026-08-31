@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.4.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.0-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.4.0** · Web + PWA · GitHub Pages. The source tree also contains the Tauri 2 cross-platform foundation for future native targets; no native store release is claimed by v0.4.0.
+Current published release: **v0.5.0** · Web + PWA · GitHub Pages. v0.5.0 also establishes the Tauri 2 cross-platform foundation and reproducible native package validation; it does not claim a signed Android, macOS, or iOS store release.
 
 ## 🎯 Rules
 
@@ -64,7 +64,8 @@ Current published release: **v0.4.0** · Web + PWA · GitHub Pages. The source t
 - safer touch dragging with reduced accidental moves;
 - mobile controls remain available as compact icon buttons instead of disappearing;
 - installable PWA with offline readiness and in-app update notification;
-- automatic hardened GitHub Pages deployment.
+- automatic hardened GitHub Pages deployment;
+- shared Tauri 2 shell for Android and macOS package validation without forking the game core.
 
 ## 🕹 Controls
 
@@ -119,9 +120,11 @@ There is no account, backend, analytics, advertising, or tracking. The current g
 
 ## 🧩 Cross-platform foundation
 
-The same TypeScript/Vite application is being prepared for native packaging with **Tauri 2**. Native packages bundle the frontend locally instead of using the hosted GitHub Pages site as their primary UI. PWA generation is disabled for native builds so browser service-worker updates remain separate from store/package updates.
+The same TypeScript/Vite application is packaged natively with **Tauri 2**. Native packages bundle the frontend locally instead of using the hosted GitHub Pages site as their primary UI. PWA generation is disabled for native builds so browser service-worker updates remain separate from store/package updates.
 
-The planned order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native Kotlin/Swift/Rust code should stay limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.
+The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace/applicationId, Kotlin package paths, tests, workflows, and documentation are kept aligned with that identity.
+
+The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.
 
 See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, build rules, identifiers, and native validation gates.
 
@@ -162,6 +165,7 @@ src/
 │   └── canvas-board.ts    Canvas rendering, gestures, keyboard input and win animation
 ├── i18n.ts                Russian / English interface
 ├── main.ts                application state, history, settings, replay and game flow
+├── native-config.test.ts  native identifier and generated Android path regression
 └── styles.css             visual layer, accessibility and responsive layout
 
 src-tauri/
@@ -219,14 +223,15 @@ Pushes and pull requests are verified by GitHub Actions with:
 
 - reproducible dependency installation through `npm ci`;
 - blocking npm audit for high and critical findings;
-- Vitest unit and regression tests for board state, history, sharing, locales, AI tactics, and AI Lab smoke scenarios;
+- Vitest unit and regression tests for board state, history, sharing, locales, native identity, AI tactics, and AI Lab smoke scenarios;
 - a 5,000-move bounded-render query regression;
 - TypeScript validation and production build;
+- Android APK and universal macOS DMG package-build verification for native changes;
 - CodeQL analysis with `security-extended` queries;
 - Semgrep security and secret rules;
 - Gitleaks full-history secret scanning.
 
-A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native targets require their own package-build verification before a native release is considered ready.
+A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility; signed public distribution remains a separate release-channel step.
 
 ## 🔐 Security
 
@@ -251,13 +256,12 @@ The selected language is applied to rules, modes, difficulty, settings, buttons,
 
 ## 🗺 Roadmap
 
-Completed in **v0.4.0**: keyboard accessibility, reduced-motion support, long-game render hardening, bounded local game history, history replay, and richer local AI statistics.
+Completed in **v0.5.0**: shared Tauri 2 native shell, stable `com.sl.infinitefive` application identity, generated Android project, native identity regression coverage, and Android/macOS package-build validation.
 
 Next priorities:
 
-- establish and validate the shared Tauri 2 native foundation without changing the web game core;
-- harden Android packaging, signing, native integration, and RuStore publication;
-- prepare macOS direct-distribution packaging, with Developer ID signing/notarization when available;
+- harden Android packaging, release signing, native integration, and RuStore publication;
+- prepare macOS direct distribution with Developer ID signing/notarization when available;
 - add iOS packaging when the required Apple distribution access is available;
 - continue adding real-player AI regression positions and measured performance follow-up;
 - later, optional room-link online multiplayer across supported platforms without changing the core rules.
