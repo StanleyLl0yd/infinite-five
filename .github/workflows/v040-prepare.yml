@@ -1,0 +1,141 @@
+name: Prepare v0.4.0
+
+on:
+  push:
+    branches: [release/0.4.0-accessibility-history]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: ${{ !contains(github.event.head_commit.message, '[v040-ready]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Patch application integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/main.ts')
+          text = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              if text.count(old) != 1:
+                  raise RuntimeError(f'Expected one match, got {text.count(old)}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "import { Board } from './game/board';\nimport { createShareUrl, readSharedGameFromHash } from './game/share';",
+              "import { Board } from './game/board';\nimport {\n  addHistoryEntry,\n  createHistoryId,\n  parseHistory,\n  serializeHistory,\n  summarizeHistory,\n  type HistoryEntry\n} from './game/history';\nimport {\n  createShareUrl,\n  decodeSharedGame,\n  encodeSharedGame,\n  readSharedGameFromHash\n} from './game/share';"
+          )
+          replace_once(
+              "const statsStorageKey = 'infinite-five.stats.v1';\nconst legacyThemeStorageKey",
+              "const statsStorageKey = 'infinite-five.stats.v1';\nconst historyStorageKey = 'infinite-five.history.v1';\nconst legacyThemeStorageKey"
+          )
+          replace_once(
+              "const canvas = getElement<HTMLCanvasElement>('#board');\nconst status = getElement<HTMLElement>('#status');",
+              "const canvas = getElement<HTMLCanvasElement>('#board');\nconst boardKeyboardHelp = getElement<HTMLElement>('#boardKeyboardHelp');\nconst status = getElement<HTMLElement>('#status');"
+          )
+          replace_once(
+              "const themeButton = getElement<HTMLButtonElement>('#themeButton');\nconst settingsButton",
+              "const themeButton = getElement<HTMLButtonElement>('#themeButton');\nconst historyButton = getElement<HTMLButtonElement>('#historyButton');\nconst settingsButton"
+          )
+          replace_once(
+              "const resumeNewGameButton = getElement<HTMLButtonElement>('#resumeNewGameButton');\nconst settingsDialog",
+              "const resumeNewGameButton = getElement<HTMLButtonElement>('#resumeNewGameButton');\nconst historyDialog = getElement<HTMLDialogElement>('#historyDialog');\nconst historyDialogTitle = getElement<HTMLElement>('#historyDialogTitle');\nconst historySummary = getElement<HTMLElement>('#historySummary');\nconst historyList = getElement<HTMLElement>('#historyList');\nconst historyCloseButton = getElement<HTMLButtonElement>('#historyCloseButton');\nconst settingsDialog"
+          )
+          replace_once(
+              "let statistics: Statistics = { wins: 0, losses: 0 };\nlet replay:",
+              "let statistics: Statistics = { wins: 0, losses: 0 };\nlet gameHistory: HistoryEntry[] = [];\nlet replay:"
+          )
+          replace_once(
+              "  canvas.setAttribute('aria-label', text.boardLabel);\n  modeLabel.textContent",
+              "  canvas.setAttribute('aria-label', text.boardLabel);\n  canvas.dataset.cellLabel = text.cellLabel;\n  boardKeyboardHelp.textContent = text.boardKeyboardHelp;\n  modeLabel.textContent"
+          )
+          replace_once(
+              "  undoButton.querySelector('.button-label')!.textContent = text.undo;\n  settingsButton.querySelector('.button-label')!.textContent = text.settings;",
+              "  undoButton.querySelector('.button-label')!.textContent = text.undo;\n  historyButton.querySelector('.button-label')!.textContent = text.history;\n  settingsButton.querySelector('.button-label')!.textContent = text.settings;"
+          )
+          replace_once(
+              "  resumeNewGameButton.textContent = text.newGame;\n  settingsDialogTitle.textContent",
+              "  resumeNewGameButton.textContent = text.newGame;\n  historyDialogTitle.textContent = text.historyTitle;\n  historyCloseButton.textContent = text.close;\n  settingsDialogTitle.textContent"
+          )
+          replace_once(
+              "  undoButton.title = text.undo;\n  settingsButton.title = text.settings;",
+              "  undoButton.title = text.undo;\n  historyButton.title = text.history;\n  settingsButton.title = text.settings;"
+          )
+          replace_once(
+              "const saveStatistics = (): void => {\n  localStorage.setItem(statsStorageKey, JSON.stringify(statistics));\n};",
+              "const saveStatistics = (): void => {\n  localStorage.setItem(statsStorageKey, JSON.stringify(statistics));\n};\n\nconst loadHistory = (): void => {\n  gameHistory = parseHistory(localStorage.getItem(historyStorageKey));\n};\n\nconst saveHistory = (): void => {\n  localStorage.setItem(historyStorageKey, serializeHistory(gameHistory));\n};"
+          )
+          replace_once(
+              "const updateStatistics = (): void => {\n  statsElement.textContent = interpolate(text.stats, {\n    wins: statistics.wins,\n    losses: statistics.losses\n  });\n};",
+              "const updateStatistics = (): void => {\n  const games = statistics.wins + statistics.losses;\n  const rate = games === 0 ? 0 : Math.round((statistics.wins / games) * 100);\n  statsElement.textContent = interpolate(text.stats, {\n    wins: statistics.wins,\n    losses: statistics.losses,\n    rate\n  });\n};\n\nconst difficultyName = (difficulty: AiDifficulty): string => {\n  if (difficulty === 'easy') return text.difficultyEasy;\n  if (difficulty === 'medium') return text.difficultyMedium;\n  if (difficulty === 'hard') return text.difficultyHard;\n  return text.difficultyExpert;\n};\n\nconst recordHistory = (): void => {\n  if (!winner || replay) return;\n  const moves = [...board.getMoves()];\n  const id = createHistoryId(moves, winner);\n  if (gameHistory.some((entry) => entry.id === id)) return;\n\n  let encodedReplay: string | null = null;\n  try {\n    encodedReplay = encodeSharedGame(moves);\n  } catch {\n    encodedReplay = null;\n  }\n\n  gameHistory = addHistoryEntry(gameHistory, {\n    id,\n    completedAt: Date.now(),\n    mode: settings.mode,\n    difficulty: settings.mode === 'ai' ? settings.difficulty : null,\n    humanMark: settings.mode === 'ai' ? humanMark : null,\n    winner,\n    moves: moves.length,\n    replay: encodedReplay\n  });\n  saveHistory();\n};\n\nconst revertRecordedHistory = (): void => {\n  if (!winner || replay) return;\n  const id = createHistoryId(board.getMoves(), winner);\n  const next = gameHistory.filter((entry) => entry.id !== id);\n  if (next.length === gameHistory.length) return;\n  gameHistory = next;\n  saveHistory();\n};\n\nconst renderHistory = (): void => {\n  const summary = summarizeHistory(gameHistory);\n  historySummary.textContent = gameHistory.length === 0\n    ? ''\n    : interpolate(text.historySummary, {\n        games: summary.games,\n        average: summary.averageMoves,\n        rate: summary.aiWinRate\n      });\n  historyList.replaceChildren();\n\n  if (gameHistory.length === 0) {\n    const empty = document.createElement('div');\n    empty.className = 'history-empty';\n    empty.textContent = text.historyEmpty;\n    historyList.append(empty);\n    return;\n  }\n\n  const dateFormatter = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {\n    dateStyle: 'medium',\n    timeStyle: 'short'\n  });\n\n  for (const entry of gameHistory) {\n    const row = document.createElement('div');\n    row.className = 'history-entry';\n    const copy = document.createElement('div');\n    copy.className = 'history-entry-copy';\n    const title = document.createElement('strong');\n    if (entry.mode === 'ai' && entry.humanMark && entry.difficulty) {\n      title.textContent = interpolate(\n        entry.winner === entry.humanMark ? text.historyAiWin : text.historyAiLoss,\n        { difficulty: difficultyName(entry.difficulty), moves: entry.moves }\n      );\n    } else {\n      title.textContent = interpolate(text.historyLocal, { winner: entry.winner, moves: entry.moves });\n    }\n    const date = document.createElement('span');\n    date.textContent = dateFormatter.format(new Date(entry.completedAt));\n    copy.append(title, date);\n    row.append(copy);\n\n    if (entry.replay) {\n      const replayButton = document.createElement('button');\n      replayButton.type = 'button';\n      replayButton.textContent = text.replay;\n      replayButton.addEventListener('click', () => {\n        const moves = decodeSharedGame(entry.replay ?? '');\n        if (!moves) return;\n        historyDialog.close();\n        enterReplay(moves, true, 0);\n      });\n      row.append(replayButton);\n    } else {\n      const unavailable = document.createElement('span');\n      unavailable.className = 'history-replay-unavailable';\n      unavailable.textContent = text.replayUnavailable;\n      row.append(unavailable);\n    }\n    historyList.append(row);\n  }\n};"
+          )
+          replace_once(
+              "    winner = mark;\n    recordResult();",
+              "    winner = mark;\n    recordResult();\n    recordHistory();"
+          )
+          replace_once(
+              "loadSettings();\nloadStatistics();\napplyTranslations();",
+              "loadSettings();\nloadStatistics();\nloadHistory();\napplyTranslations();"
+          )
+          replace_once(
+              "} else if (winner) {\n  recordResult();\n  saveGame();",
+              "} else if (winner) {\n  recordResult();\n  recordHistory();\n  saveGame();"
+          )
+          replace_once(
+              "settingsButton.addEventListener('click', () => {\n  syncSettingsDialog();\n  settingsDialog.showModal();\n});",
+              "historyButton.addEventListener('click', () => {\n  renderHistory();\n  historyDialog.showModal();\n});\nhistoryCloseButton.addEventListener('click', () => historyDialog.close());\n\nsettingsButton.addEventListener('click', () => {\n  syncSettingsDialog();\n  settingsDialog.showModal();\n});"
+          )
+          replace_once(
+              "  revertRecordedResult();\n\n  const moves = board.getMoves();",
+              "  revertRecordedResult();\n  revertRecordedHistory();\n\n  const moves = board.getMoves();"
+          )
+
+          path.write_text(text)
+
+          package = Path('package.json')
+          package_text = package.read_text()
+          if package_text.count('"version": "0.3.1"') != 1:
+              raise RuntimeError('Unexpected package version state')
+          package.write_text(package_text.replace('"version": "0.3.1"', '"version": "0.4.0"', 1))
+          PY
+
+      - name: Refresh lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Commit prepared release
+        run: |
+          git config user.name "Stanley Lloyd"
+          git config user.email "131160519+StanleyLl0yd@users.noreply.github.com"
+          git add src/main.ts package.json package-lock.json
+          git commit -m "Integrate v0.4.0 accessibility and history [v040-ready]"
+          git push
