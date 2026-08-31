@@ -56,7 +56,8 @@ body {
   overscroll-behavior: none;
 }
 
-button {
+button,
+select {
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   background: var(--button-bg);
@@ -64,21 +65,37 @@ button {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
+}
+
+button {
   line-height: 1;
   padding: 10px 13px;
   cursor: pointer;
-  transition: background 120ms ease, transform 120ms ease;
+  transition: background 120ms ease, transform 120ms ease, opacity 120ms ease;
 }
 
-button:hover {
+select {
+  min-height: 36px;
+  padding: 7px 30px 7px 10px;
+}
+
+button:hover:not(:disabled),
+select:hover:not(:disabled) {
   background: var(--button-hover);
 }
 
-button:active {
+button:active:not(:disabled) {
   transform: translateY(1px);
 }
 
-button:focus-visible {
+button:disabled,
+select:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+button:focus-visible,
+select:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--mark-x) 45%, transparent);
   outline-offset: 2px;
 }
@@ -133,7 +150,7 @@ button.primary {
 }
 
 .status {
-  min-width: 110px;
+  min-width: 130px;
   text-align: center;
   font-size: 14px;
   font-weight: 700;
@@ -167,7 +184,54 @@ button.primary {
   cursor: crosshair;
 }
 
-@media (max-width: 720px) {
+.game-options {
+  position: fixed;
+  z-index: 9;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 9px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.option-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.option-field > span {
+  padding-left: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats {
+  align-self: center;
+  white-space: nowrap;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.game-options[data-mode='local'] #difficultyField,
+.game-options[data-mode='local'] .stats {
+  display: none;
+}
+
+@media (max-width: 840px) {
   .topbar {
     grid-template-columns: auto 1fr auto;
     gap: 8px;
@@ -191,8 +255,40 @@ button.primary {
   }
 }
 
-@media (max-width: 460px) {
+@media (max-width: 560px) {
   #themeButton {
     display: none;
+  }
+
+  .game-options {
+    width: calc(100vw - 20px);
+    justify-content: center;
+  }
+
+  .option-field {
+    flex: 1;
+  }
+
+  .option-field select {
+    width: 100%;
+  }
+
+  .stats {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  #undoButton {
+    font-size: 0;
+  }
+
+  #undoButton::after {
+    content: '↶';
+    font-size: 18px;
+  }
+
+  #newGameButton {
+    padding-inline: 9px;
   }
 }

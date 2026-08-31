@@ -15,15 +15,34 @@
           <span class="brand-symbol">∞5</span>
           <span class="brand-name">Infinite Five</span>
         </div>
-        <div id="status" class="status" aria-live="polite">X to move</div>
+        <div id="status" class="status" aria-live="polite">Your turn</div>
         <div class="actions">
           <button id="centerButton" type="button">Center</button>
+          <button id="undoButton" type="button">Undo</button>
           <button id="themeButton" type="button">Theme</button>
           <button id="newGameButton" type="button" class="primary">New game</button>
         </div>
       </header>
       <main class="game-shell">
         <canvas id="board" aria-label="Infinite Five game board"></canvas>
+        <section class="game-options" aria-label="Game options">
+          <label class="option-field">
+            <span>Mode</span>
+            <select id="modeSelect">
+              <option value="ai">Vs computer</option>
+              <option value="local">Two players</option>
+            </select>
+          </label>
+          <label id="difficultyField" class="option-field">
+            <span>Difficulty</span>
+            <select id="difficultySelect">
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <div id="stats" class="stats" aria-live="polite">AI: 0 wins · 0 losses</div>
+        </section>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
