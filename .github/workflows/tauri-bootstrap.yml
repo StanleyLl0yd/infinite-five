@@ -39,7 +39,7 @@ jobs:
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
       - name: Generate Tauri icons
-        run: npm run tauri icon public/icon-512.png
+        run: npm run tauri icon public/icon.svg
 
       - name: Initialize Android target
         run: npm run tauri android init -- --ci
