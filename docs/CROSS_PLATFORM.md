@@ -65,15 +65,45 @@ Android is the first planned native distribution target. The production applicat
 
 Before a RuStore release, add only the native integrations that are actually needed. Expected items are Android lifecycle/back handling, native sharing and haptics, release signing, store-safe versioning and the RuStore update flow. RuStore-specific SDK access should be isolated in an Android/Kotlin Tauri plugin so the shared TypeScript game remains store-neutral.
 
-Signing material belongs in the release environment or repository secrets, never in Git. A successful unsigned CI package build proves packaging compatibility but is not a store-ready signed release.
+Release APKs and AABs are produced only from the tagged release source. The APK uses the application-signing alias. The AAB uses the upload-key alias expected by the store workflow. Both aliases may live in the same Java keystore, while keeping the logical keys separate is preferred. The release workflow verifies certificate SHA-256 fingerprints before building and verifies the resulting APK/AAB signatures before publishing artifacts.
+
+The Android release secret contract is:
+
+- `ANDROID_KEYSTORE_BASE64` — base64-encoded Java keystore;
+- `ANDROID_KEYSTORE_PASSWORD` — keystore password;
+- `ANDROID_APP_KEY_ALIAS` — application-signing alias used for the APK;
+- `ANDROID_APP_KEY_PASSWORD` — application-signing key password;
+- `ANDROID_APP_CERT_SHA256` — expected application-signing certificate SHA-256 fingerprint;
+- `ANDROID_UPLOAD_KEY_ALIAS` — upload-key alias used for the AAB;
+- `ANDROID_UPLOAD_KEY_PASSWORD` — upload-key password;
+- `ANDROID_UPLOAD_CERT_SHA256` — expected upload certificate SHA-256 fingerprint.
+
+If the initial keystore contains only one suitable key, the app and upload aliases can temporarily point to the same key, but a separate upload key is preferred for the RuStore AAB lifecycle. RuStore may additionally require the encrypted application-signing key export and upload certificate during first-time AAB signing setup; those store enrollment files are separate from GitHub release artifacts.
+
+`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in repository secrets or the release environment, never in Git.
 
 ## macOS
 
 macOS is a supported native target in the architecture even if it is not the first public native release target. Direct distribution can use a Tauri-generated application bundle/DMG without relying on the Mac App Store. The canonical bundle identity is `com.sl.infinitefive`.
 
-Unsigned or ad-hoc builds are suitable only for development and early technical testing. A normal public direct-distribution release should later use Apple Developer ID signing and notarization when the required Apple developer access is available.
+Until Apple Developer ID access is available, the native release pipeline produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. This is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
-A universal build should target both Apple Silicon and Intel when practical.
+When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
+
+## Native release artifacts
+
+`.github/workflows/native-release.yml` is the controlled packaging path for native release files. It is manually dispatched against an existing GitHub release tag and refuses to build when the tag does not match the version in `package.json`.
+
+For each successful run it builds and verifies:
+
+```text
+Infinite-Five-v<version>-Android.apk
+Infinite-Five-v<version>-Android.aab
+Infinite-Five-v<version>-macOS-universal.dmg
+SHA256SUMS.txt
+```
+
+The workflow retains the files as GitHub Actions artifacts and attaches them to the matching GitHub Release. Release assets are generated from a tag, not from an arbitrary moving branch.
 
 ## iOS
 
