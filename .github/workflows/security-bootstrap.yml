@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Generate lockfile
+      - name: Generate updated lockfile
         run: npm install --package-lock-only --ignore-scripts
 
       - name: Capture audit report
