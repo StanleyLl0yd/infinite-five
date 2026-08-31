@@ -2,7 +2,7 @@
 
 ## Product
 
-Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The web version is the primary implementation and must remain suitable for later packaging as an Android application with Capacitor.
+Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The TypeScript/Vite implementation is the shared game implementation for the browser and native application shells so platform expansion does not create separate game engines.
 
 Current published release: **v0.4.0**.
 
@@ -21,7 +21,7 @@ The core game must not gain progression systems, resources, power-ups, world map
 
 ## Current web build
 
-The current web build provides:
+The current published web build provides:
 
 - infinite Canvas board;
 - local two-player play;
@@ -55,6 +55,16 @@ The current web build provides:
 
 Online multiplayer remains outside the current release and may be added later without changing the core rules.
 
+## Cross-platform direction
+
+The browser/PWA remains a first-class target. Native applications use Tauri 2 around the same compiled frontend and game core rather than separate Kotlin, Swift or desktop implementations.
+
+The first planned native distribution target is Android through RuStore. macOS direct distribution is kept as an architectural target and can precede any Mac App Store publication. iOS and additional Android stores can be added when the required distribution access is available. Windows and Linux may be evaluated later without changing the shared game implementation.
+
+Native builds must bundle the frontend locally, remain usable without loading the hosted website, and must not register the PWA service worker. Native-only integrations such as store updates, signing, lifecycle behavior, native sharing or haptics should remain isolated behind small platform boundaries. Cross-platform conventions and validation gates are documented in `docs/CROSS_PLATFORM.md`.
+
+The current native application identifier is `io.github.stanleyll0yd.infinitefive`; it must be intentionally frozen before the first public store publication.
+
 ## AI principles
 
 Easy may make deliberate mistakes. Medium should reliably handle immediate tactical wins and blocks. Hard should evaluate a wider set of tactical candidates, opponent responses and forks. Expert should be materially stronger than Hard while remaining bounded for browser and mobile use.
@@ -85,7 +95,7 @@ A completed game may be replayed step by step or shared as a URL. Opening a shar
 
 ## Persistence and privacy
 
-The current game, UI settings, local AI statistics and the bounded recent-game history are stored in browser `localStorage`. Saved formats should be versioned and older supported formats should be migrated when practical.
+The current game, UI settings, local AI statistics and the bounded recent-game history are stored in browser-compatible local storage. Saved formats should be versioned and older supported formats should be migrated when practical. Native packaging must preserve those formats where practical so the shared game layer does not fork by platform.
 
 Recent history stores at most 20 completed games. A compact replay payload is retained when the game fits the existing share codec; exceptionally long completed games may remain in history as result metadata without a replay payload.
 
@@ -109,17 +119,19 @@ Win detection starts from the latest move and scans the four relevant axes. The 
 
 ## Architecture
 
-- TypeScript for application and game logic.
+- TypeScript for shared application and game logic.
 - HTML5 Canvas for board rendering and input.
 - Web Worker for non-blocking AI calculation.
 - Vite for development and production builds.
-- vite-plugin-pwa for installation, updates and offline support.
+- vite-plugin-pwa for browser installation, updates and offline support.
+- Tauri 2 for native application shells and packaging.
+- Rust for the minimal shared Tauri shell; Kotlin/Swift only for native integrations that actually require them.
 - Vitest for game, history, sharing, locale and AI regression tests.
-- localStorage for local persistence and recent-game history.
+- localStorage-compatible persistence for current local state and recent-game history.
 - URL fragments for backend-free game sharing.
 - GitHub Actions for CI, security verification and GitHub Pages deployment.
 
-Game rules, AI evaluation, local history and sharing formats must remain independent from rendering and browser UI where practical so they can be tested separately and reused by an Android wrapper later.
+Game rules, AI evaluation, local history and sharing formats must remain independent from rendering and browser/native shell concerns where practical so the same implementation serves every target.
 
 ## Development order
 
@@ -131,14 +143,17 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 6. AI Lab, tactical regression corpus, fork defense and iterative Expert tuning. Completed in v0.3.1.
 7. Keyboard accessibility, reduced-motion support and long-game render hardening. Completed in v0.4.0.
 8. Bounded local game history, history replay and richer local AI statistics. Completed in v0.4.0.
-9. Ongoing repository maintenance, dependency review, release hardening and measured follow-up optimization where profiling identifies a real need.
-10. Optional room-link online multiplayer.
-11. Optional Capacitor Android packaging.
+9. Cross-platform Tauri foundation and build validation for the first native targets.
+10. Android production hardening, signing, RuStore integration and publication.
+11. macOS direct-distribution packaging and signing/notarization when available.
+12. iOS packaging and distribution when the required Apple access is available.
+13. Optional room-link online multiplayer across supported platforms.
+14. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
 
 ## Repository conventions
 
 Keep implementation comments to the minimum necessary. Comments must be current, useful and written in English. Prefer clear names and small modules over explanatory comments. Do not commit generated build output, local environment files or secrets.
 
-Keep the npm lockfile committed and use reproducible installs in automation. Third-party GitHub Actions must remain pinned to full commit SHAs, and high or critical dependency audit findings must block integration unless a reviewed exception is explicitly documented.
+Keep dependency lockfiles committed and use reproducible installs in automation. Third-party GitHub Actions must remain pinned to full commit SHAs, and high or critical dependency audit findings must block integration unless a reviewed exception is explicitly documented.
 
 Close superseded automated pull requests and remove stale branches after work is merged or intentionally abandoned. Keep only branches and update pull requests that still represent active work.
