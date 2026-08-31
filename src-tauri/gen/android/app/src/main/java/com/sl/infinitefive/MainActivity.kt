@@ -1,4 +1,4 @@
-package io.github.stanleyll0yd.infinitefive
+package com.sl.infinitefive
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

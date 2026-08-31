@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Infinite Five</string>
-    <string name="main_activity_title">Infinite Five</string>
+    <string name="app_name">"Infinite Five"</string>
+    <string name="main_activity_title">"Infinite Five"</string>
 </resources>
