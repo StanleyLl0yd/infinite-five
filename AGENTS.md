@@ -7,6 +7,7 @@
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
 - Treat the TypeScript/Vite application as the shared game implementation for web and native targets; do not create separate platform-specific game engines.
 - Use Tauri 2 as the native application shell for Android, macOS, iOS, and any later desktop targets unless a platform constraint is demonstrated and an alternative is explicitly approved.
+- Keep the native Application ID / Bundle ID fixed as `com.sl.infinitefive` unless an identifier migration is explicitly approved. Android namespace, applicationId, Kotlin package declarations, generated package paths, tests, workflows, and documentation must stay aligned with it.
 - Keep native integrations minimal and isolated behind platform boundaries. Native Kotlin/Swift/Rust code must not duplicate game rules, AI, replay, history, or localization logic without a compelling platform requirement.
 - Native production builds must bundle the frontend locally and must not load GitHub Pages as their primary application UI.
 - Keep PWA service workers, install prompts, and web update handling browser-only; native package updates belong to the platform distribution channel.
@@ -28,7 +29,7 @@
 - Preserve offline/PWA behavior and GitHub Pages compatibility.
 - Maintain Russian and English user-facing text. Auto language selection must use Russian when the browser or resolved system locale includes Russian; English is the fallback. Manual language override may be offered but must not break Auto behavior.
 - Preserve saved-game compatibility where practical and do not let shared replay links overwrite an unrelated local saved game.
-- Add or update tests for game logic, AI behavior, locale handling, sharing formats, local history, bounded rendering, and regressions where practical.
+- Add or update tests for game logic, AI behavior, locale handling, sharing formats, local history, bounded rendering, native identity, and regressions where practical.
 - Run relevant tests, dependency audit, security checks where applicable, the production web build, and affected native build checks before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
 - Comments must be minimal, necessary, current, and English-only.
