@@ -11,6 +11,13 @@ interface WorldPoint {
   y: number;
 }
 
+interface WorldBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 interface Palette {
   background: string;
   grid: string;
@@ -18,6 +25,7 @@ interface Palette {
   o: string;
   last: string;
   win: string;
+  focus: string;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -27,11 +35,13 @@ export class CanvasBoard {
   private readonly context: CanvasRenderingContext2D;
   private readonly pointers = new Map<number, ScreenPoint>();
   private readonly resizeObserver: ResizeObserver;
+  private readonly cursorStatus: HTMLElement | null;
   private width = 0;
   private height = 0;
   private cellSize = 52;
   private cameraX = 0.5;
   private cameraY = 0.5;
+  private keyboardCell: Position = { x: 0, y: 0 };
   private pointerStart: ScreenPoint | null = null;
   private lastPointer: ScreenPoint | null = null;
   private pointerType = 'mouse';
@@ -43,6 +53,7 @@ export class CanvasBoard {
   private winProgress = 1;
   private emphasizeWin = false;
   private animationFrame: number | null = null;
+  private renderFrame: number | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -55,6 +66,7 @@ export class CanvasBoard {
     }
 
     this.context = context;
+    this.cursorStatus = document.getElementById('boardCursorStatus');
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
 
@@ -63,6 +75,9 @@ export class CanvasBoard {
     canvas.addEventListener('pointerup', this.handlePointerUp);
     canvas.addEventListener('pointercancel', this.handlePointerUp);
     canvas.addEventListener('wheel', this.handleWheel, { passive: false });
+    canvas.addEventListener('keydown', this.handleKeyDown);
+    canvas.addEventListener('focus', this.handleFocusChange);
+    canvas.addEventListener('blur', this.handleFocusChange);
 
     this.resize();
   }
@@ -81,6 +96,12 @@ export class CanvasBoard {
     }
     this.stopAnimation();
     this.emphasizeWin = true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.winProgress = 1;
+      this.render();
+      return;
+    }
+
     this.winProgress = 0;
     const start = performance.now();
     const frame = (now: number): void => {
@@ -103,8 +124,11 @@ export class CanvasBoard {
   }
 
   centerOn(position?: Position): void {
-    this.cameraX = (position?.x ?? 0) + 0.5;
-    this.cameraY = (position?.y ?? 0) + 0.5;
+    const target = position ?? { x: 0, y: 0 };
+    this.cameraX = target.x + 0.5;
+    this.cameraY = target.y + 0.5;
+    this.keyboardCell = { x: target.x, y: target.y };
+    this.announceKeyboardCell();
     this.render();
   }
 
@@ -122,7 +146,16 @@ export class CanvasBoard {
 
     this.drawGrid(palette);
     this.drawMoves(palette);
+    this.drawKeyboardFocus(palette);
     this.drawWinningLine(palette);
+  }
+
+  private requestRender(): void {
+    if (this.renderFrame !== null) return;
+    this.renderFrame = requestAnimationFrame(() => {
+      this.renderFrame = null;
+      this.render();
+    });
   }
 
   private resize(): void {
@@ -146,16 +179,23 @@ export class CanvasBoard {
       x: value('--mark-x'),
       o: value('--mark-o'),
       last: value('--last-move'),
-      win: value('--win-line')
+      win: value('--win-line'),
+      focus: value('--board-focus')
+    };
+  }
+
+  private getVisibleBounds(): WorldBounds {
+    return {
+      left: this.cameraX - this.width / (2 * this.cellSize),
+      right: this.cameraX + this.width / (2 * this.cellSize),
+      top: this.cameraY - this.height / (2 * this.cellSize),
+      bottom: this.cameraY + this.height / (2 * this.cellSize)
     };
   }
 
   private drawGrid(palette: Palette): void {
     const ctx = this.context;
-    const left = this.cameraX - this.width / (2 * this.cellSize);
-    const right = this.cameraX + this.width / (2 * this.cellSize);
-    const top = this.cameraY - this.height / (2 * this.cellSize);
-    const bottom = this.cameraY + this.height / (2 * this.cellSize);
+    const { left, right, top, bottom } = this.getVisibleBounds();
 
     ctx.beginPath();
     ctx.strokeStyle = palette.grid;
@@ -192,45 +232,44 @@ export class CanvasBoard {
   }
 
   private drawMoves(palette: Palette): void {
-    const moves = this.board.getMoves();
-    const lastMove = moves[moves.length - 1];
+    const allMoves = this.board.getMoves();
+    const lastMove = allMoves[allMoves.length - 1];
+    const { left, right, top, bottom } = this.getVisibleBounds();
+    const moves = this.board.getMovesInBounds(
+      Math.floor(left) - 1,
+      Math.ceil(right) + 1,
+      Math.floor(top) - 1,
+      Math.ceil(bottom) + 1
+    );
     const margin = this.cellSize * 0.24;
     const radius = this.cellSize * 0.27;
 
     for (const move of moves) {
-      const left = this.worldToScreenX(move.x);
-      const top = this.worldToScreenY(move.y);
-      if (
-        left > this.width ||
-        top > this.height ||
-        left + this.cellSize < 0 ||
-        top + this.cellSize < 0
-      ) {
-        continue;
-      }
+      const cellLeft = this.worldToScreenX(move.x);
+      const cellTop = this.worldToScreenY(move.y);
 
       this.context.save();
       if (this.emphasizeWin && this.winningLine && !this.moveBelongsToWinningLine(move)) {
         this.context.globalAlpha = 0.28;
       }
 
-      if (move === lastMove) {
+      if (lastMove && move.x === lastMove.x && move.y === lastMove.y) {
         this.context.fillStyle = palette.last;
-        this.context.fillRect(left + 2, top + 2, this.cellSize - 4, this.cellSize - 4);
+        this.context.fillRect(cellLeft + 2, cellTop + 2, this.cellSize - 4, this.cellSize - 4);
       }
 
-      const centerX = left + this.cellSize / 2;
-      const centerY = top + this.cellSize / 2;
+      const centerX = cellLeft + this.cellSize / 2;
+      const centerY = cellTop + this.cellSize / 2;
       this.context.strokeStyle = move.mark === 'X' ? palette.x : palette.o;
       this.context.lineWidth = Math.max(2.5, this.cellSize * 0.07);
       this.context.lineCap = 'round';
       this.context.beginPath();
 
       if (move.mark === 'X') {
-        this.context.moveTo(left + margin, top + margin);
-        this.context.lineTo(left + this.cellSize - margin, top + this.cellSize - margin);
-        this.context.moveTo(left + this.cellSize - margin, top + margin);
-        this.context.lineTo(left + margin, top + this.cellSize - margin);
+        this.context.moveTo(cellLeft + margin, cellTop + margin);
+        this.context.lineTo(cellLeft + this.cellSize - margin, cellTop + this.cellSize - margin);
+        this.context.moveTo(cellLeft + this.cellSize - margin, cellTop + margin);
+        this.context.lineTo(cellLeft + margin, cellTop + this.cellSize - margin);
       } else {
         this.context.arc(centerX, centerY, radius, 0, Math.PI * 2);
       }
@@ -238,6 +277,27 @@ export class CanvasBoard {
       this.context.stroke();
       this.context.restore();
     }
+  }
+
+  private drawKeyboardFocus(palette: Palette): void {
+    if (document.activeElement !== this.canvas) return;
+    const left = this.worldToScreenX(this.keyboardCell.x);
+    const top = this.worldToScreenY(this.keyboardCell.y);
+    if (
+      left > this.width ||
+      top > this.height ||
+      left + this.cellSize < 0 ||
+      top + this.cellSize < 0
+    ) {
+      return;
+    }
+
+    this.context.save();
+    this.context.strokeStyle = palette.focus;
+    this.context.lineWidth = Math.max(2, this.cellSize * 0.045);
+    this.context.setLineDash([Math.max(5, this.cellSize * 0.12), Math.max(4, this.cellSize * 0.08)]);
+    this.context.strokeRect(left + 4, top + 4, this.cellSize - 8, this.cellSize - 8);
+    this.context.restore();
   }
 
   private drawWinningLine(palette: Palette): void {
@@ -286,8 +346,46 @@ export class CanvasBoard {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
+  private zoomAt(point: ScreenPoint, nextSize: number): void {
+    const anchor = this.screenToWorld(point);
+    this.cellSize = clamp(nextSize, 28, 92);
+    this.cameraX = anchor.x - (point.x - this.width / 2) / this.cellSize;
+    this.cameraY = anchor.y - (point.y - this.height / 2) / this.cellSize;
+  }
+
+  private keyboardCellCenter(): ScreenPoint {
+    return {
+      x: this.worldToScreenX(this.keyboardCell.x + 0.5),
+      y: this.worldToScreenY(this.keyboardCell.y + 0.5)
+    };
+  }
+
+  private ensureKeyboardCellVisible(): void {
+    const margin = 1.25;
+    const { left, right, top, bottom } = this.getVisibleBounds();
+    if (this.keyboardCell.x < left + margin) {
+      this.cameraX -= left + margin - this.keyboardCell.x;
+    } else if (this.keyboardCell.x + 1 > right - margin) {
+      this.cameraX += this.keyboardCell.x + 1 - (right - margin);
+    }
+    if (this.keyboardCell.y < top + margin) {
+      this.cameraY -= top + margin - this.keyboardCell.y;
+    } else if (this.keyboardCell.y + 1 > bottom - margin) {
+      this.cameraY += this.keyboardCell.y + 1 - (bottom - margin);
+    }
+  }
+
+  private announceKeyboardCell(): void {
+    if (!this.cursorStatus) return;
+    const label = this.canvas.dataset.cellLabel || 'Cell';
+    const occupied = this.board.get(this.keyboardCell.x, this.keyboardCell.y);
+    const state = occupied ? ` ${occupied}` : '';
+    this.cursorStatus.textContent = `${label} ${this.keyboardCell.x}, ${this.keyboardCell.y}${state}`;
+  }
+
   private handlePointerDown = (event: PointerEvent): void => {
     const point = this.eventPoint(event);
+    this.canvas.focus({ preventScroll: true });
     this.canvas.setPointerCapture(event.pointerId);
     this.pointers.set(event.pointerId, point);
 
@@ -327,7 +425,7 @@ export class CanvasBoard {
       this.cameraX -= dx / this.cellSize;
       this.cameraY -= dy / this.cellSize;
       this.lastPointer = point;
-      this.render();
+      this.requestRender();
       return;
     }
 
@@ -340,12 +438,11 @@ export class CanvasBoard {
       const distance = Math.hypot(first.x - second.x, first.y - second.y);
 
       if (this.pinchDistance > 0 && this.pinchMidpoint) {
+        this.zoomAt(this.pinchMidpoint, this.cellSize * (distance / this.pinchDistance));
         const anchor = this.screenToWorld(this.pinchMidpoint);
-        const nextSize = clamp(this.cellSize * (distance / this.pinchDistance), 28, 92);
-        this.cellSize = nextSize;
-        this.cameraX = anchor.x - (midpoint.x - this.width / 2) / nextSize;
-        this.cameraY = anchor.y - (midpoint.y - this.height / 2) / nextSize;
-        this.render();
+        this.cameraX = anchor.x - (midpoint.x - this.width / 2) / this.cellSize;
+        this.cameraY = anchor.y - (midpoint.y - this.height / 2) / this.cellSize;
+        this.requestRender();
       }
 
       this.pinchDistance = distance;
@@ -358,7 +455,10 @@ export class CanvasBoard {
     const singlePointerRelease = this.pointers.size === 1;
 
     if (singlePointerRelease && !this.moved && !this.multiPointerGesture) {
-      this.onCellClick(this.screenToCell(point));
+      this.keyboardCell = this.screenToCell(point);
+      this.announceKeyboardCell();
+      this.onCellClick(this.keyboardCell);
+      this.render();
     }
 
     this.pointers.delete(event.pointerId);
@@ -378,12 +478,58 @@ export class CanvasBoard {
   private handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
     const point = this.eventPoint(event);
-    const anchor = this.screenToWorld(point);
-    const nextSize = clamp(this.cellSize * Math.exp(-event.deltaY * 0.0012), 28, 92);
+    this.zoomAt(point, this.cellSize * Math.exp(-event.deltaY * 0.0012));
+    this.requestRender();
+  };
 
-    this.cellSize = nextSize;
-    this.cameraX = anchor.x - (point.x - this.width / 2) / nextSize;
-    this.cameraY = anchor.y - (point.y - this.height / 2) / nextSize;
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+    let moved = false;
+    if (event.key === 'ArrowLeft') {
+      this.keyboardCell.x -= 1;
+      moved = true;
+    } else if (event.key === 'ArrowRight') {
+      this.keyboardCell.x += 1;
+      moved = true;
+    } else if (event.key === 'ArrowUp') {
+      this.keyboardCell.y -= 1;
+      moved = true;
+    } else if (event.key === 'ArrowDown') {
+      this.keyboardCell.y += 1;
+      moved = true;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.onCellClick({ ...this.keyboardCell });
+      this.announceKeyboardCell();
+      this.render();
+      return;
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      const moves = this.board.getMoves();
+      this.centerOn(moves[moves.length - 1]);
+      return;
+    } else if (event.key === '+' || event.key === '=') {
+      event.preventDefault();
+      this.zoomAt(this.keyboardCellCenter(), this.cellSize * 1.12);
+      this.render();
+      return;
+    } else if (event.key === '-' || event.key === '_') {
+      event.preventDefault();
+      this.zoomAt(this.keyboardCellCenter(), this.cellSize / 1.12);
+      this.render();
+      return;
+    }
+
+    if (!moved) return;
+    event.preventDefault();
+    this.ensureKeyboardCellVisible();
+    this.announceKeyboardCell();
+    this.render();
+  };
+
+  private handleFocusChange = (): void => {
+    this.announceKeyboardCell();
     this.render();
   };
 
