@@ -4,11 +4,13 @@ import { Board } from './board';
 
 const populateDoubleThreatBoard = (): Board => {
   const board = new Board();
+  board.place(-2, 0, 'O');
   board.place(-1, 0, 'O');
   board.place(1, 0, 'O');
+  board.place(0, -2, 'O');
   board.place(0, -1, 'O');
   board.place(0, 1, 'O');
-  board.place(-3, -3, 'X');
+  board.place(-4, -4, 'X');
   return board;
 };
 
@@ -57,11 +59,13 @@ describe('chooseAiMove', () => {
 
   it('blocks a single opponent double-threat intersection on expert', () => {
     const board = new Board();
+    board.place(-2, 0, 'X');
     board.place(-1, 0, 'X');
     board.place(1, 0, 'X');
+    board.place(0, -2, 'X');
     board.place(0, -1, 'X');
     board.place(0, 1, 'X');
-    board.place(-3, -3, 'O');
+    board.place(-4, -4, 'O');
 
     const move = chooseAiMove(board, 'O', 'expert', {
       seed: 5,
