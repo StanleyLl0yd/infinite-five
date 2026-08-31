@@ -3,6 +3,7 @@ import { chooseAiMove, type AiDifficulty } from './game/ai';
 import { Board } from './game/board';
 import { getWinningLine } from './game/win';
 import type { Mark, Move, Position, WinningLine } from './game/types';
+import { interpolate, resolveLocale, translations } from './i18n';
 import { CanvasBoard } from './ui/canvas-board';
 
 type GameMode = 'ai' | 'local';
@@ -24,32 +25,37 @@ const statsStorageKey = 'infinite-five.stats.v1';
 const themeStorageKey = 'infinite-five.theme.v1';
 const humanMark: Mark = 'X';
 const computerMark: Mark = 'O';
+const locale = resolveLocale(navigator.language || 'en');
+const text = translations[locale];
 
-const canvas = document.querySelector<HTMLCanvasElement>('#board');
-const status = document.querySelector<HTMLElement>('#status');
-const centerButton = document.querySelector<HTMLButtonElement>('#centerButton');
-const undoButton = document.querySelector<HTMLButtonElement>('#undoButton');
-const themeButton = document.querySelector<HTMLButtonElement>('#themeButton');
-const newGameButton = document.querySelector<HTMLButtonElement>('#newGameButton');
-const modeSelect = document.querySelector<HTMLSelectElement>('#modeSelect');
-const difficultySelect = document.querySelector<HTMLSelectElement>('#difficultySelect');
-const gameOptions = document.querySelector<HTMLElement>('.game-options');
-const statsElement = document.querySelector<HTMLElement>('#stats');
+const getElement = <T extends Element>(selector: string): T => {
+  const element = document.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing application element: ${selector}`);
+  }
+  return element;
+};
 
-if (
-  !canvas ||
-  !status ||
-  !centerButton ||
-  !undoButton ||
-  !themeButton ||
-  !newGameButton ||
-  !modeSelect ||
-  !difficultySelect ||
-  !gameOptions ||
-  !statsElement
-) {
-  throw new Error('Application shell is incomplete');
-}
+const canvas = getElement<HTMLCanvasElement>('#board');
+const status = getElement<HTMLElement>('#status');
+const centerButton = getElement<HTMLButtonElement>('#centerButton');
+const undoButton = getElement<HTMLButtonElement>('#undoButton');
+const themeButton = getElement<HTMLButtonElement>('#themeButton');
+const newGameButton = getElement<HTMLButtonElement>('#newGameButton');
+const modeSelect = getElement<HTMLSelectElement>('#modeSelect');
+const difficultySelect = getElement<HTMLSelectElement>('#difficultySelect');
+const gameOptions = getElement<HTMLElement>('.game-options');
+const statsElement = getElement<HTMLElement>('#stats');
+const metaDescription = getElement<HTMLMetaElement>('#metaDescription');
+const gameInfoTitle = getElement<HTMLElement>('#gameInfoTitle');
+const gameInfoRules = getElement<HTMLElement>('#gameInfoRules');
+const modeLabel = getElement<HTMLElement>('#modeLabel');
+const difficultyLabel = getElement<HTMLElement>('#difficultyLabel');
+const modeAiOption = getElement<HTMLOptionElement>('#modeAiOption');
+const modeLocalOption = getElement<HTMLOptionElement>('#modeLocalOption');
+const difficultyEasyOption = getElement<HTMLOptionElement>('#difficultyEasyOption');
+const difficultyMediumOption = getElement<HTMLOptionElement>('#difficultyMediumOption');
+const difficultyHardOption = getElement<HTMLOptionElement>('#difficultyHardOption');
 
 const board = new Board();
 let mode: GameMode = 'ai';
@@ -75,6 +81,25 @@ const isMove = (value: unknown): value is Move => {
 
   const move = value as Partial<Move>;
   return Number.isInteger(move.x) && Number.isInteger(move.y) && isMark(move.mark);
+};
+
+const applyTranslations = (): void => {
+  document.documentElement.lang = locale;
+  metaDescription.content = text.metaDescription;
+  gameInfoTitle.textContent = text.infoTitle;
+  gameInfoRules.textContent = text.infoRules;
+  gameOptions.setAttribute('aria-label', text.gameOptionsLabel);
+  canvas.setAttribute('aria-label', text.boardLabel);
+  modeLabel.textContent = text.modeLabel;
+  modeAiOption.textContent = text.modeAi;
+  modeLocalOption.textContent = text.modeLocal;
+  difficultyLabel.textContent = text.difficultyLabel;
+  difficultyEasyOption.textContent = text.difficultyEasy;
+  difficultyMediumOption.textContent = text.difficultyMedium;
+  difficultyHardOption.textContent = text.difficultyHard;
+  centerButton.textContent = text.center;
+  undoButton.textContent = text.undo;
+  newGameButton.textContent = text.newGame;
 };
 
 const loadSettings = (): void => {
@@ -180,22 +205,25 @@ const resolveGameState = (): void => {
 };
 
 const updateStatistics = (): void => {
-  statsElement.textContent = `AI: ${statistics.wins} wins · ${statistics.losses} losses`;
+  statsElement.textContent = interpolate(text.stats, {
+    wins: statistics.wins,
+    losses: statistics.losses
+  });
 };
 
 const updateStatus = (): void => {
   if (winner) {
     if (mode === 'ai') {
-      status.textContent = winner === humanMark ? 'You win' : 'Computer wins';
+      status.textContent = winner === humanMark ? text.youWin : text.computerWins;
     } else {
-      status.textContent = `${winner} wins`;
+      status.textContent = interpolate(text.markWins, { mark: winner });
     }
   } else if (aiThinking) {
-    status.textContent = 'Computer thinking…';
+    status.textContent = text.computerThinking;
   } else if (mode === 'ai') {
-    status.textContent = currentMark === humanMark ? 'Your turn' : 'Computer to move';
+    status.textContent = currentMark === humanMark ? text.yourTurn : text.computerTurn;
   } else {
-    status.textContent = `${currentMark} to move`;
+    status.textContent = interpolate(text.markTurn, { mark: currentMark });
   }
 
   status.dataset.winner = winner ?? '';
@@ -219,10 +247,10 @@ const refreshUi = (): void => {
 const applyTheme = (theme: 'light' | 'dark'): void => {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem(themeStorageKey, theme);
-  themeButton.textContent = theme === 'dark' ? 'Light' : 'Dark';
+  themeButton.textContent = theme === 'dark' ? text.light : text.dark;
   themeButton.setAttribute(
     'aria-label',
-    theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+    theme === 'dark' ? text.switchToLight : text.switchToDark
   );
 };
 
@@ -325,6 +353,8 @@ const handleCellClick = (position: Position): void => {
     scheduleAiTurn();
   }
 };
+
+applyTranslations();
 
 const savedTheme = localStorage.getItem(themeStorageKey);
 const initialTheme =
