@@ -1,0 +1,122 @@
+name: Native
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Android Rust targets
+        run: |
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Verify application identity
+        run: |
+          grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
+          grep -F 'namespace = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
+          grep -F 'applicationId = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
+          test -f src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
+          grep -F 'package com.sl.infinitefive' src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
+          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
+          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
+          ! test -e src-tauri/gen/android/app/src/main/java/io/github/stanleyll0yd/infinitefive/MainActivity.kt
+          ! test -e src-tauri/gen/android/buildSrc/src/main/java/io/github/stanleyll0yd/infinitefive
+          ! grep -R -F 'io.github.stanleyll0yd.infinitefive' src-tauri --exclude-dir=target
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Android APK
+        run: npm run tauri android build -- --apk --debug
+
+      - name: Verify APK output
+        run: test -n "$(find src-tauri/gen/android -type f -name '*.apk' -print -quit)"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: infinite-five-android-apk
+          path: src-tauri/gen/android/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS universal DMG
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure macOS Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Verify application identity
+        run: grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build universal macOS DMG
+        run: npm run tauri build -- --bundles dmg --target universal-apple-darwin --no-sign
+
+      - name: Verify DMG output
+        run: test -n "$(find src-tauri/target -type f -name '*.dmg' -print -quit)"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: infinite-five-macos-universal-dmg
+          path: src-tauri/target/**/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
