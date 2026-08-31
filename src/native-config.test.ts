@@ -47,4 +47,14 @@ describe('native application identity', () => {
       expect(read(file)).not.toContain(OLD_APP_ID);
     }
   });
+
+  it('keeps release signing external to the repository', () => {
+    const gradle = read(`${androidRoot}/app/build.gradle.kts`);
+    expect(gradle).toContain('rootProject.file("keystore.properties")');
+    expect(gradle).toContain('create("release")');
+    expect(gradle).toContain('signingConfig = signingConfigs.getByName("release")');
+    expect(gradle).toContain('keyPassword = keystoreProperties.getProperty("keyPassword")');
+    expect(gradle).toContain('storePassword = keystoreProperties.getProperty("storePassword")');
+    expect(existsSync(`${androidRoot}/keystore.properties`)).toBe(false);
+  });
 });

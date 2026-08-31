@@ -11,6 +11,10 @@
 - Keep native integrations minimal and isolated behind platform boundaries. Native Kotlin/Swift/Rust code must not duplicate game rules, AI, replay, history, or localization logic without a compelling platform requirement.
 - Native production builds must bundle the frontend locally and must not load GitHub Pages as their primary application UI.
 - Keep PWA service workers, install prompts, and web update handling browser-only; native package updates belong to the platform distribution channel.
+- Build release APK/AAB/DMG files only from an immutable release tag through the controlled native release workflow; do not publish native release files built from an arbitrary moving branch.
+- Keep Android signing material exclusively in GitHub Secrets or another approved release secret store. Restore keystores only on ephemeral runners, verify expected certificate fingerprints before signing, and never commit generated signing property files.
+- Keep the Android application-signing key and AAB upload key logically distinct even when both aliases live in one keystore. The APK must use the application-signing key and the AAB must use the upload key unless an explicitly reviewed store requirement says otherwise.
+- Treat ad-hoc macOS signing only as an interim direct-testing/distribution mode. Once Developer ID access exists, use Developer ID signing and notarization for normal public macOS distribution.
 - Keep game rules and AI logic independent from rendering and browser UI where practical.
 - Keep AI candidate locality strictly as a search optimization; never turn it into a restriction on legal human moves.
 - Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.

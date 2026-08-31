@@ -1,0 +1,270 @@
+name: Native Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach native artifacts to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: native-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Signed Android APK and AAB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify release version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          test "$TAG" = "v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Android Rust targets
+        run: |
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Restore and verify Android keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_APP_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
+          ANDROID_APP_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
+          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_APP_KEY_ALIAS"
+          test -n "$ANDROID_APP_KEY_PASSWORD"
+          test -n "$ANDROID_APP_CERT_SHA256"
+          test -n "$ANDROID_UPLOAD_KEY_ALIAS"
+          test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
+          test -n "$ANDROID_UPLOAD_CERT_SHA256"
+          KEYSTORE_PATH="$RUNNER_TEMP/infinite-five.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+          check_cert() {
+            local alias="$1"
+            local expected="$2"
+            local actual
+            actual="$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$alias" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            expected="$(printf '%s' "$expected" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            test -n "$actual"
+            test "$actual" = "$expected"
+          }
+
+          check_cert "$ANDROID_APP_KEY_ALIAS" "$ANDROID_APP_CERT_SHA256"
+          check_cert "$ANDROID_UPLOAD_KEY_ALIAS" "$ANDROID_UPLOAD_CERT_SHA256"
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build signed APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          npm run tauri android build -- --apk
+          mkdir -p release
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          test -f "$APK"
+          cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
+
+      - name: Build signed AAB
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          npm run tauri android build -- --aab
+          AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*release*.aab' -print -quit)"
+          test -f "$AAB"
+          cp "$AAB" "release/Infinite-Five-v${VERSION}-Android.aab"
+
+      - name: Verify Android artifacts
+        env:
+          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          APK="release/Infinite-Five-v${VERSION}-Android.apk"
+          AAB="release/Infinite-Five-v${VERSION}-Android.aab"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.sl.infinitefive'"
+          EXPECTED_APK_CERT="$(printf '%s' "$ANDROID_APP_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_APK_CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_APK_CERT" = "$EXPECTED_APK_CERT"
+          jarsigner -verify -strict "$AAB"
+          EXPECTED_AAB_CERT="$(printf '%s' "$ANDROID_UPLOAD_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_AAB_CERT="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_AAB_CERT" = "$EXPECTED_AAB_CERT"
+          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
+
+      - name: Upload signed Android artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: infinite-five-signed-android-${{ inputs.tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: Ad-hoc signed universal macOS DMG
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify release version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          test "$TAG" = "v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure macOS Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build ad-hoc signed universal DMG
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npm run tauri build -- --bundles dmg --target universal-apple-darwin
+
+      - name: Verify and stage macOS artifact
+        run: |
+          APP="$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -type d -name '*.app' -print -quit)"
+          DMG="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -type f -name '*.dmg' -print -quit)"
+          test -d "$APP"
+          test -f "$DMG"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=4 "$APP" 2>&1 | grep -F 'Identifier=com.sl.infinitefive'
+          mkdir -p release
+          cp "$DMG" "release/Infinite-Five-v${VERSION}-macOS-universal.dmg"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: infinite-five-macos-${{ inputs.tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Attach native files to GitHub Release
+    needs: [android, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download workflow artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "infinite-five-signed-android-${{ inputs.tag }}" --dir release
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "infinite-five-macos-${{ inputs.tag }}" --dir release
+
+      - name: Create checksums
+        working-directory: release
+        run: sha256sum Infinite-Five-* > SHA256SUMS.txt
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber

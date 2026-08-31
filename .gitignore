@@ -9,3 +9,9 @@ coverage/
 !.env.example
 .DS_Store
 src-tauri/target/
+src-tauri/gen/android/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.cer
+*.mobileprovision
