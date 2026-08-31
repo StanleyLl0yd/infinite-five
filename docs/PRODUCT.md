@@ -4,6 +4,8 @@
 
 Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The web version is the primary implementation and must remain suitable for later packaging as an Android application with Capacitor.
 
+Current published release: **v0.4.0**.
+
 ## Core rules
 
 - Two marks: X and O.
@@ -129,7 +131,7 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 6. AI Lab, tactical regression corpus, fork defense and iterative Expert tuning. Completed in v0.3.1.
 7. Keyboard accessibility, reduced-motion support and long-game render hardening. Completed in v0.4.0.
 8. Bounded local game history, history replay and richer local AI statistics. Completed in v0.4.0.
-9. Release hardening and measured follow-up optimization where profiling identifies a real need.
+9. Ongoing repository maintenance, dependency review, release hardening and measured follow-up optimization where profiling identifies a real need.
 10. Optional room-link online multiplayer.
 11. Optional Capacitor Android packaging.
 
@@ -138,3 +140,5 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 Keep implementation comments to the minimum necessary. Comments must be current, useful and written in English. Prefer clear names and small modules over explanatory comments. Do not commit generated build output, local environment files or secrets.
 
 Keep the npm lockfile committed and use reproducible installs in automation. Third-party GitHub Actions must remain pinned to full commit SHAs, and high or critical dependency audit findings must block integration unless a reviewed exception is explicitly documented.
+
+Close superseded automated pull requests and remove stale branches after work is merged or intentionally abandoned. Keep only branches and update pull requests that still represent active work.
