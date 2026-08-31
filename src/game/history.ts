@@ -53,7 +53,7 @@ const isHistoryEntry = (value: unknown): value is HistoryEntry => {
   );
 };
 
-export const createHistoryId = (moves: readonly Move[], winner: Mark): string => {
+export const createHistoryFingerprint = (moves: readonly Move[], winner: Mark): string => {
   let hash = 2_166_136_261;
   for (const move of moves) {
     hash ^= move.x;
@@ -68,10 +68,27 @@ export const createHistoryId = (moves: readonly Move[], winner: Mark): string =>
   return `${moves.length}-${winner}-${(hash >>> 0).toString(36)}`;
 };
 
+export const createHistoryId = (
+  moves: readonly Move[],
+  winner: Mark,
+  completedAt: number
+): string => `${createHistoryFingerprint(moves, winner)}-${Math.trunc(completedAt).toString(36)}`;
+
 export const addHistoryEntry = (
   entries: readonly HistoryEntry[],
   entry: HistoryEntry
 ): HistoryEntry[] => [entry, ...entries.filter((item) => item.id !== entry.id)].slice(0, maxHistoryEntries);
+
+export const removeLatestMatchingHistoryEntry = (
+  entries: readonly HistoryEntry[],
+  moves: readonly Move[],
+  winner: Mark
+): HistoryEntry[] => {
+  const prefix = `${createHistoryFingerprint(moves, winner)}-`;
+  const index = entries.findIndex((entry) => entry.id.startsWith(prefix));
+  if (index < 0) return [...entries];
+  return [...entries.slice(0, index), ...entries.slice(index + 1)];
+};
 
 export const parseHistory = (raw: string | null): HistoryEntry[] => {
   if (!raw) return [];
