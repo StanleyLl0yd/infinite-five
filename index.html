@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#111827" />
+    <meta name="description" content="Infinite Five — five in a row on an infinite board." />
+    <link rel="icon" href="/infinite-five/icon.svg" type="image/svg+xml" />
+    <title>Infinite Five</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand" aria-label="Infinite Five">
+          <span class="brand-symbol">∞5</span>
+          <span class="brand-name">Infinite Five</span>
+        </div>
+        <div id="status" class="status" aria-live="polite">X to move</div>
+        <div class="actions">
+          <button id="centerButton" type="button">Center</button>
+          <button id="themeButton" type="button">Theme</button>
+          <button id="newGameButton" type="button" class="primary">New game</button>
+        </div>
+      </header>
+      <main class="game-shell">
+        <canvas id="board" aria-label="Infinite Five game board"></canvas>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
