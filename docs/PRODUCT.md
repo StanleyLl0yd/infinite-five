@@ -32,14 +32,21 @@ The current web build provides:
 - last-move indication, animated winning-line highlight and post-game emphasis;
 - drag navigation with touch movement thresholds that reduce accidental moves;
 - mouse-wheel and pinch zoom;
+- keyboard board navigation with arrow keys, Enter/Space placement, Home return and keyboard zoom;
+- visible focus state and localized screen-reader guidance for keyboard board interaction;
+- reduced-motion handling for winning-line animation;
 - return to the latest move on desktop and mobile;
 - new game and AI undo;
 - automatic unfinished-game persistence with an explicit continue prompt;
-- basic win/loss statistics for AI games;
+- cumulative AI win/loss statistics with win rate;
+- bounded local history of the 20 most recent completed games;
+- local history replay when a game fits the compact replay format;
 - system, light and dark themes;
 - automatic or manually selected Russian/English UI;
 - optional result sound and vibration;
 - game replay and compact URL sharing without a backend;
+- visible-window Canvas rendering that avoids scanning the complete move history on every frame;
+- animation-frame redraw coalescing for high-frequency pan and zoom input;
 - responsive mobile layout with persistent compact controls;
 - installable PWA with standard and maskable icons, offline operation and update notification;
 - GitHub Pages deployment.
@@ -68,19 +75,23 @@ Self-play is a tuning and integration signal, not a strength proof. Small sample
 
 A short tap places a mark. A drag moves the board. Pinch zooms on touch devices and the mouse wheel zooms on desktop. Camera movement must never alter board coordinates. The interface should preserve as much screen area as possible for the board.
 
+Keyboard users can focus the board, move a cell cursor with arrow keys, place a mark with Enter or Space, return to the latest move with Home and zoom with plus/minus. Keyboard interaction must retain an obvious focus indicator and localized assistive text. Motion that is purely decorative must respect the user's reduced-motion preference.
+
 Important controls must remain reachable on compact screens; labels may collapse to icons instead of disappearing. The player must always be able to identify whose turn it is, the latest move and the winning sequence. No modal confirmation should interrupt ordinary moves.
 
-A completed game may be replayed step by step or shared as a URL. Opening a shared replay must not overwrite an unrelated locally saved game.
+A completed game may be replayed step by step or shared as a URL. Opening a shared or local-history replay must not overwrite an unrelated locally saved game.
 
 ## Persistence and privacy
 
-The current game, UI settings and local AI statistics are stored in browser `localStorage`. Saved game formats should be versioned and older supported formats should be migrated when practical.
+The current game, UI settings, local AI statistics and the bounded recent-game history are stored in browser `localStorage`. Saved formats should be versioned and older supported formats should be migrated when practical.
+
+Recent history stores at most 20 completed games. A compact replay payload is retained when the game fits the existing share codec; exceptionally long completed games may remain in history as result metadata without a replay payload.
 
 Shared games encode only the move coordinates required to reconstruct alternating X/O play into the URL fragment. No account, analytics, tracking, advertising, backend or unnecessary network request is required for the core product.
 
 ## Board model
 
-Only occupied cells are stored. Coordinates use signed integer pairs and are independent of the rendered viewport. Rendering is limited to the visible area while the game state remains unbounded for practical play.
+Only occupied cells are stored. Coordinates use signed integer pairs and are independent of the rendered viewport. Rendering requests only occupied cells in the visible coordinate window while the game state remains unbounded for practical play.
 
 A move is represented as:
 
@@ -92,7 +103,7 @@ interface Move {
 }
 ```
 
-Win detection starts from the latest move and scans the four relevant axes. The whole board is never scanned after a move.
+Win detection starts from the latest move and scans the four relevant axes. The whole board is never scanned after a move. Canvas rendering must likewise avoid work proportional to total move history when only a small viewport is visible. Performance conventions are documented in `docs/PERFORMANCE.md`.
 
 ## Architecture
 
@@ -101,12 +112,12 @@ Win detection starts from the latest move and scans the four relevant axes. The 
 - Web Worker for non-blocking AI calculation.
 - Vite for development and production builds.
 - vite-plugin-pwa for installation, updates and offline support.
-- Vitest for game, sharing, locale and AI regression tests.
-- localStorage for local persistence.
+- Vitest for game, history, sharing, locale and AI regression tests.
+- localStorage for local persistence and recent-game history.
 - URL fragments for backend-free game sharing.
 - GitHub Actions for CI, security verification and GitHub Pages deployment.
 
-Game rules, AI evaluation and sharing formats must remain independent from rendering and browser UI where practical so they can be tested separately and reused by an Android wrapper later.
+Game rules, AI evaluation, local history and sharing formats must remain independent from rendering and browser UI where practical so they can be tested separately and reused by an Android wrapper later.
 
 ## Development order
 
@@ -116,10 +127,11 @@ Game rules, AI evaluation and sharing formats must remain independent from rende
 4. Mobile UX, settings, side selection and stronger AI tiers. Completed in v0.3.0.
 5. Post-game polish, saved-game continuation, PWA hardening, replay and sharing. Completed in v0.3.0.
 6. AI Lab, tactical regression corpus, fork defense and iterative Expert tuning. Completed in v0.3.1.
-7. Accessibility and long-game performance profiling.
-8. Richer but still minimal local game history and statistics.
-9. Optional room-link online multiplayer.
-10. Optional Capacitor Android packaging.
+7. Keyboard accessibility, reduced-motion support and long-game render hardening. Completed in v0.4.0.
+8. Bounded local game history, history replay and richer local AI statistics. Completed in v0.4.0.
+9. Release hardening and measured follow-up optimization where profiling identifies a real need.
+10. Optional room-link online multiplayer.
+11. Optional Capacitor Android packaging.
 
 ## Repository conventions
 
