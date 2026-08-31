@@ -4,15 +4,16 @@ Infinite Five is a five-in-a-row game on an infinite board, built as a responsiv
 
 ## Play
 
-The production site will be published with GitHub Pages at:
-
 https://stanleyll0yd.github.io/infinite-five/
 
 ## Current implementation
 
 - infinite Canvas board;
+- computer opponent with Easy, Medium and Hard difficulty;
 - local X vs O play;
 - five-or-more win detection;
+- AI-game undo;
+- AI win/loss statistics;
 - drag navigation;
 - mouse-wheel and pinch zoom;
 - latest-move highlight;
@@ -21,9 +22,8 @@ https://stanleyll0yd.github.io/infinite-five/
 - light and dark themes;
 - responsive desktop and mobile layout;
 - PWA configuration;
-- GitHub Pages deployment workflow.
-
-The next major milestone is the computer opponent with three difficulty levels.
+- automated game-engine tests;
+- GitHub Pages deployment.
 
 ## Development
 
@@ -32,9 +32,10 @@ npm install
 npm run dev
 ```
 
-Production build:
+Tests and production build:
 
 ```bash
+npm test
 npm run build
 ```
 
