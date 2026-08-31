@@ -15,12 +15,12 @@ The automated corpus covers:
 - broken-four completion;
 - offensive double-threat intersections;
 - defensive double-threat intersections;
-- deterministic Expert choices for the same position and seed;
+- deterministic Expert choices for the same position and seed when the requested search iteration completes;
 - board immutability during search;
 - bounded Expert search diagnostics;
-- short deterministic Expert-vs-Hard and Hard-vs-Expert self-play smoke matches.
+- short bounded Expert-vs-Hard and Hard-vs-Expert self-play smoke matches.
 
-The self-play checks verify legal deterministic search behaviour and integration stability. They are not used as a standalone strength rating because a small self-play sample can be misleading.
+The self-play checks verify legal search behaviour and integration stability. They are not used as a standalone strength rating because a small self-play sample can be misleading. Production search is deliberately limited by wall-clock time, so two repeated self-play runs are not required to produce an identical full move sequence if one run completes a deeper iteration before the deadline and another does not.
 
 ## Running the lab
 
