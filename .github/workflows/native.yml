@@ -99,7 +99,8 @@ jobs:
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Verify application identity
-        run: grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
+        run: |
+          grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
