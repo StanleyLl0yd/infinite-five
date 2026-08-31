@@ -54,7 +54,7 @@ if (
 const board = new Board();
 let mode: GameMode = 'ai';
 let difficulty: AiDifficulty = 'medium';
-let currentMark: Mark = 'X';
+let currentMark = 'X' as Mark;
 let winner: Mark | null = null;
 let winningLine: WinningLine | null = null;
 let resultRecorded = false;
@@ -118,7 +118,8 @@ const loadStatistics = (): void => {
       return;
     }
   } catch {
-    // Invalid local data is discarded below.
+    localStorage.removeItem(statsStorageKey);
+    return;
   }
 
   localStorage.removeItem(statsStorageKey);
@@ -399,6 +400,6 @@ difficultySelect.addEventListener('change', () => {
   refreshUi();
 });
 
-if (mode === 'ai' && currentMark === computerMark && !winner) {
+if (mode === 'ai' && board.getMoves().length % 2 === 1 && !winner) {
   scheduleAiTurn();
 }
