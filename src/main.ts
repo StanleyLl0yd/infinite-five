@@ -25,7 +25,11 @@ const statsStorageKey = 'infinite-five.stats.v1';
 const themeStorageKey = 'infinite-five.theme.v1';
 const humanMark: Mark = 'X';
 const computerMark: Mark = 'O';
-const locale = resolveLocale(navigator.language || 'en');
+const locale = resolveLocale(
+  navigator.language,
+  ...navigator.languages,
+  Intl.DateTimeFormat().resolvedOptions().locale
+);
 const text = translations[locale];
 
 const getElement = <T extends Element>(selector: string): T => {
@@ -56,6 +60,11 @@ const modeLocalOption = getElement<HTMLOptionElement>('#modeLocalOption');
 const difficultyEasyOption = getElement<HTMLOptionElement>('#difficultyEasyOption');
 const difficultyMediumOption = getElement<HTMLOptionElement>('#difficultyMediumOption');
 const difficultyHardOption = getElement<HTMLOptionElement>('#difficultyHardOption');
+const resultDialog = getElement<HTMLDialogElement>('#resultDialog');
+const resultDialogTitle = getElement<HTMLElement>('#resultDialogTitle');
+const resultDialogPrompt = getElement<HTMLElement>('#resultDialogPrompt');
+const resultCloseButton = getElement<HTMLButtonElement>('#resultCloseButton');
+const resultNewGameButton = getElement<HTMLButtonElement>('#resultNewGameButton');
 
 const board = new Board();
 let mode: GameMode = 'ai';
@@ -100,6 +109,9 @@ const applyTranslations = (): void => {
   centerButton.textContent = text.center;
   undoButton.textContent = text.undo;
   newGameButton.textContent = text.newGame;
+  resultDialogPrompt.textContent = text.resultPrompt;
+  resultCloseButton.textContent = text.close;
+  resultNewGameButton.textContent = text.newGame;
 };
 
 const loadSettings = (): void => {
@@ -204,6 +216,16 @@ const resolveGameState = (): void => {
   currentMark = moves.length % 2 === 0 ? 'X' : 'O';
 };
 
+const getResultText = (): string => {
+  if (!winner) {
+    return '';
+  }
+  if (mode === 'ai') {
+    return winner === humanMark ? text.youWin : text.computerWins;
+  }
+  return interpolate(text.markWins, { mark: winner });
+};
+
 const updateStatistics = (): void => {
   statsElement.textContent = interpolate(text.stats, {
     wins: statistics.wins,
@@ -213,11 +235,7 @@ const updateStatistics = (): void => {
 
 const updateStatus = (): void => {
   if (winner) {
-    if (mode === 'ai') {
-      status.textContent = winner === humanMark ? text.youWin : text.computerWins;
-    } else {
-      status.textContent = interpolate(text.markWins, { mark: winner });
-    }
+    status.textContent = getResultText();
   } else if (aiThinking) {
     status.textContent = text.computerThinking;
   } else if (mode === 'ai') {
@@ -284,6 +302,14 @@ const revertRecordedResult = (): void => {
   saveStatistics();
 };
 
+const showResultDialog = (): void => {
+  if (!winner || resultDialog.open) {
+    return;
+  }
+  resultDialogTitle.textContent = getResultText();
+  resultDialog.showModal();
+};
+
 const applyMove = (position: Position, mark: Mark): boolean => {
   if (!board.place(position.x, position.y, mark)) {
     return false;
@@ -301,6 +327,9 @@ const applyMove = (position: Position, mark: Mark): boolean => {
   saveGame();
   view.setWinningLine(winningLine);
   refreshUi();
+  if (winner) {
+    window.setTimeout(showResultDialog, 120);
+  }
   return true;
 };
 
@@ -330,6 +359,9 @@ const scheduleAiTurn = (): void => {
 
 const resetGame = (): void => {
   cancelAiTurn();
+  if (resultDialog.open) {
+    resultDialog.close();
+  }
   board.clear();
   currentMark = 'X';
   winner = null;
@@ -375,6 +407,9 @@ view = new CanvasBoard(canvas, board, handleCellClick);
 view.setWinningLine(winningLine);
 refreshUi();
 saveGame();
+if (winner) {
+  window.setTimeout(showResultDialog, 120);
+}
 
 centerButton.addEventListener('click', () => {
   const moves = board.getMoves();
@@ -389,6 +424,7 @@ themeButton.addEventListener('click', () => {
 });
 
 newGameButton.addEventListener('click', resetGame);
+resultNewGameButton.addEventListener('click', resetGame);
 
 undoButton.addEventListener('click', () => {
   if (mode !== 'ai' || board.getMoves().length === 0) {

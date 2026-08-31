@@ -261,6 +261,45 @@ button.primary {
   cursor: crosshair;
 }
 
+.result-dialog {
+  width: min(360px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: var(--panel-bg);
+  color: var(--text);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.3);
+}
+
+.result-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.result-dialog form {
+  padding: 22px;
+}
+
+.result-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.result-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.result-dialog-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 900px) {
   .topbar {
     grid-template-columns: auto 1fr auto;
