@@ -53,43 +53,42 @@ jobs:
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
-      - name: Configure Android signing
+      - name: Restore and verify Android keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_CERT_SHA256: ${{ secrets.ANDROID_CERT_SHA256 }}
+          ANDROID_APP_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
+          ANDROID_APP_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
+          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           test -n "$ANDROID_KEYSTORE_BASE64"
           test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
-          test -n "$ANDROID_KEY_PASSWORD"
-          test -n "$ANDROID_CERT_SHA256"
-          KEYSTORE="$RUNNER_TEMP/infinite-five.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-          chmod 600 "$KEYSTORE"
-          export KEYSTORE
-          python - <<'PY'
-          import os
-          from pathlib import Path
+          test -n "$ANDROID_APP_KEY_ALIAS"
+          test -n "$ANDROID_APP_KEY_PASSWORD"
+          test -n "$ANDROID_APP_CERT_SHA256"
+          test -n "$ANDROID_UPLOAD_KEY_ALIAS"
+          test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
+          test -n "$ANDROID_UPLOAD_CERT_SHA256"
+          KEYSTORE_PATH="$RUNNER_TEMP/infinite-five.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
-          def prop(value: str) -> str:
-              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+          check_cert() {
+            local alias="$1"
+            local expected="$2"
+            local actual
+            actual="$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$alias" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            expected="$(printf '%s' "$expected" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            test -n "$actual"
+            test "$actual" = "$expected"
+          }
 
-          content = '\n'.join([
-              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
-              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
-              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
-              f"storeFile={prop(os.environ['KEYSTORE'])}",
-              '',
-          ])
-          Path('src-tauri/gen/android/keystore.properties').write_text(content, encoding='utf-8')
-          PY
-          ACTUAL_CERT_SHA256="$(keytool -list -v -keystore "$KEYSTORE" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          EXPECTED_CERT_SHA256="$(printf '%s' "$ANDROID_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          test -n "$ACTUAL_CERT_SHA256"
-          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
+          check_cert "$ANDROID_APP_KEY_ALIAS" "$ANDROID_APP_CERT_SHA256"
+          check_cert "$ANDROID_UPLOAD_KEY_ALIAS" "$ANDROID_UPLOAD_CERT_SHA256"
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
@@ -98,32 +97,81 @@ jobs:
         run: npm test
 
       - name: Build signed APK
-        run: npm run tauri android build -- --apk
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          npm run tauri android build -- --apk
+          mkdir -p release
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          test -f "$APK"
+          cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
 
       - name: Build signed AAB
-        run: npm run tauri android build -- --aab
-
-      - name: Verify and stage Android artifacts
         env:
-          ANDROID_CERT_SHA256: ${{ secrets.ANDROID_CERT_SHA256 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
-          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          npm run tauri android build -- --aab
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*release*.aab' -print -quit)"
-          test -f "$APK"
           test -f "$AAB"
+          cp "$AAB" "release/Infinite-Five-v${VERSION}-Android.aab"
+
+      - name: Verify Android artifacts
+        env:
+          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          APK="release/Infinite-Five-v${VERSION}-Android.apk"
+          AAB="release/Infinite-Five-v${VERSION}-Android.aab"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           test -x "$AAPT"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           "$AAPT" dump badging "$APK" | grep -F "package: name='com.sl.infinitefive'"
-          EXPECTED_CERT_SHA256="$(printf '%s' "$ANDROID_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          APK_CERT_SHA256="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          test "$APK_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
+          EXPECTED_APK_CERT="$(printf '%s' "$ANDROID_APP_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_APK_CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_APK_CERT" = "$EXPECTED_APK_CERT"
           jarsigner -verify -strict "$AAB"
-          mkdir -p release
-          cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
-          cp "$AAB" "release/Infinite-Five-v${VERSION}-Android.aab"
+          EXPECTED_AAB_CERT="$(printf '%s' "$ANDROID_UPLOAD_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_AAB_CERT="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_AAB_CERT" = "$EXPECTED_AAB_CERT"
+          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
 
       - name: Upload signed Android artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
