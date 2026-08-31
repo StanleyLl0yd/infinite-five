@@ -1,13 +1,14 @@
 {
   "name": "infinite-five",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ai-lab": "vitest run src/game/ai.lab.test.ts --reporter=verbose",
     "typecheck": "tsc --noEmit --pretty false"
   },
   "devDependencies": {
