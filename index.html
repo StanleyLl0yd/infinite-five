@@ -16,7 +16,7 @@
           <span class="brand-symbol">∞5</span>
           <span class="brand-name">Infinite Five</span>
         </div>
-        <div id="status" class="status" aria-live="polite">Your turn</div>
+        <div id="status" class="status" role="status" aria-live="polite">Your turn</div>
         <div class="actions">
           <button id="centerButton" type="button">
             <span class="button-icon" aria-hidden="true">◎</span>
@@ -29,6 +29,10 @@
           <button id="themeButton" type="button">
             <span class="button-icon" aria-hidden="true">◐</span>
             <span class="button-label">Theme</span>
+          </button>
+          <button id="historyButton" type="button">
+            <span class="button-icon" aria-hidden="true">☷</span>
+            <span class="button-label">History</span>
           </button>
           <button id="settingsButton" type="button">
             <span class="button-icon" aria-hidden="true">⚙</span>
@@ -73,7 +77,19 @@
         </section>
 
         <div class="board-shell">
-          <canvas id="board" aria-label="Infinite Five game board"></canvas>
+          <canvas
+            id="board"
+            tabindex="0"
+            role="application"
+            aria-label="Infinite Five game board"
+            aria-describedby="boardKeyboardHelp boardCursorStatus"
+            aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Space Home + -"
+          ></canvas>
+          <p id="boardKeyboardHelp" class="sr-only">
+            Use arrow keys to move between cells, Enter or Space to place a mark, Home to return
+            to the latest move, and plus or minus to zoom.
+          </p>
+          <div id="boardCursorStatus" class="sr-only" role="status" aria-live="polite"></div>
           <div id="replayBar" class="replay-bar" hidden>
             <div class="replay-copy">
               <strong id="replayTitle">Game replay</strong>
@@ -90,7 +106,7 @@
       </main>
     </div>
 
-    <dialog id="resultDialog" class="modal-dialog result-dialog">
+    <dialog id="resultDialog" class="modal-dialog result-dialog" aria-labelledby="resultDialogTitle">
       <div class="dialog-body">
         <h2 id="resultDialogTitle"></h2>
         <p id="resultDialogPrompt"></p>
@@ -104,7 +120,7 @@
       </div>
     </dialog>
 
-    <dialog id="resumeDialog" class="modal-dialog">
+    <dialog id="resumeDialog" class="modal-dialog" aria-labelledby="resumeDialogTitle">
       <div class="dialog-body">
         <h2 id="resumeDialogTitle"></h2>
         <p id="resumeDialogPrompt"></p>
@@ -115,7 +131,18 @@
       </div>
     </dialog>
 
-    <dialog id="settingsDialog" class="modal-dialog settings-dialog">
+    <dialog id="historyDialog" class="modal-dialog history-dialog" aria-labelledby="historyDialogTitle">
+      <div class="dialog-body">
+        <h2 id="historyDialogTitle">Game history</h2>
+        <p id="historySummary" class="history-summary"></p>
+        <div id="historyList" class="history-list"></div>
+        <div class="dialog-actions">
+          <button id="historyCloseButton" type="button">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog" class="modal-dialog settings-dialog" aria-labelledby="settingsDialogTitle">
       <div class="dialog-body">
         <h2 id="settingsDialogTitle">Settings</h2>
         <div class="settings-grid">
