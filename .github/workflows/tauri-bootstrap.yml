@@ -59,7 +59,22 @@ jobs:
           cp src-tauri/icons/icon.png public/icon-512.png
 
       - name: Initialize Android target
-        run: npm run tauri android init -- --ci
+        run: |
+          rm -rf src-tauri/gen/android
+          npm run tauri android init -- --ci
+
+      - name: Verify application identity
+        run: |
+          grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
+          grep -F 'namespace = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
+          grep -F 'applicationId = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
+          test -f src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
+          grep -F 'package com.sl.infinitefive' src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
+          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
+          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
+          grep -F 'package com.sl.infinitefive.kotlin' src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
+          grep -F 'package com.sl.infinitefive.kotlin' src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
+          ! grep -R -F 'io.github.stanleyll0yd.infinitefive' src-tauri --exclude-dir=target
 
       - name: Generate Cargo lockfile
         run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
@@ -75,8 +90,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json public/icon-512.png src-tauri/Cargo.lock src-tauri/icons src-tauri/gen/android
+          git add package-lock.json public/icon-512.png src-tauri/Cargo.lock src-tauri/icons
+          git add -A src-tauri/gen/android
           if ! git diff --cached --quiet; then
-            git commit -m "Generate Tauri platform files"
+            git commit -m "Regenerate Tauri platform files"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi

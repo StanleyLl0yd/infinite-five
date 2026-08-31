@@ -10,7 +10,7 @@ name = "infinite_five_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = "=2.5.6"
+tauri-build = "=2.6.3"
 
 [dependencies]
-tauri = "=2.10.3"
+tauri = "=2.11.3"
