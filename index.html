@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <meta id="metaDescription" name="description" content="Infinite Five — five in a row on an infinite board." />
     <link rel="icon" href="/infinite-five/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/infinite-five/apple-touch-icon.png" />
     <title>Infinite Five</title>
   </head>
   <body>
@@ -17,12 +18,29 @@
         </div>
         <div id="status" class="status" aria-live="polite">Your turn</div>
         <div class="actions">
-          <button id="centerButton" type="button">Center</button>
-          <button id="undoButton" type="button">Undo</button>
-          <button id="themeButton" type="button">Theme</button>
-          <button id="newGameButton" type="button" class="primary">New game</button>
+          <button id="centerButton" type="button">
+            <span class="button-icon" aria-hidden="true">◎</span>
+            <span class="button-label">Center</span>
+          </button>
+          <button id="undoButton" type="button">
+            <span class="button-icon" aria-hidden="true">↶</span>
+            <span class="button-label">Undo</span>
+          </button>
+          <button id="themeButton" type="button">
+            <span class="button-icon" aria-hidden="true">◐</span>
+            <span class="button-label">Theme</span>
+          </button>
+          <button id="settingsButton" type="button">
+            <span class="button-icon" aria-hidden="true">⚙</span>
+            <span class="button-label">Settings</span>
+          </button>
+          <button id="newGameButton" type="button" class="primary">
+            <span class="button-icon" aria-hidden="true">＋</span>
+            <span class="button-label">New game</span>
+          </button>
         </div>
       </header>
+
       <main class="game-shell">
         <section class="game-info">
           <div class="game-info-copy">
@@ -47,26 +65,109 @@
                 <option id="difficultyEasyOption" value="easy">Easy</option>
                 <option id="difficultyMediumOption" value="medium">Medium</option>
                 <option id="difficultyHardOption" value="hard">Hard</option>
+                <option id="difficultyExpertOption" value="expert">Expert</option>
               </select>
             </label>
             <div id="stats" class="stats" aria-live="polite">AI: 0 wins · 0 losses</div>
           </div>
         </section>
+
         <div class="board-shell">
           <canvas id="board" aria-label="Infinite Five game board"></canvas>
+          <div id="replayBar" class="replay-bar" hidden>
+            <div class="replay-copy">
+              <strong id="replayTitle">Game replay</strong>
+              <span id="replayStep">Move 0 of 0</span>
+            </div>
+            <div class="replay-actions">
+              <button id="replayPreviousButton" type="button" aria-label="Previous">←</button>
+              <button id="replayNextButton" type="button" aria-label="Next">→</button>
+              <button id="replayShareButton" type="button">Share</button>
+              <button id="replayExitButton" type="button" class="primary">Exit replay</button>
+            </div>
+          </div>
         </div>
       </main>
     </div>
-    <dialog id="resultDialog" class="result-dialog">
-      <form method="dialog">
+
+    <dialog id="resultDialog" class="modal-dialog result-dialog">
+      <div class="dialog-body">
         <h2 id="resultDialogTitle"></h2>
         <p id="resultDialogPrompt"></p>
-        <div class="result-dialog-actions">
-          <button id="resultCloseButton" type="submit" value="close"></button>
+        <p id="resultDialogDetails" class="dialog-details"></p>
+        <div class="dialog-actions result-dialog-actions">
+          <button id="resultCloseButton" type="button"></button>
+          <button id="resultShareButton" type="button"></button>
+          <button id="resultReplayButton" type="button"></button>
           <button id="resultNewGameButton" type="button" class="primary"></button>
         </div>
-      </form>
+      </div>
     </dialog>
+
+    <dialog id="resumeDialog" class="modal-dialog">
+      <div class="dialog-body">
+        <h2 id="resumeDialogTitle"></h2>
+        <p id="resumeDialogPrompt"></p>
+        <div class="dialog-actions">
+          <button id="resumeNewGameButton" type="button"></button>
+          <button id="resumeContinueButton" type="button" class="primary"></button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog" class="modal-dialog settings-dialog">
+      <div class="dialog-body">
+        <h2 id="settingsDialogTitle">Settings</h2>
+        <div class="settings-grid">
+          <label id="humanSideField" class="settings-field">
+            <span id="humanSideLabel">Your side vs computer</span>
+            <select id="humanSideSelect">
+              <option id="sideXOption" value="X">X — first move</option>
+              <option id="sideOOption" value="O">O — computer starts</option>
+              <option id="sideRandomOption" value="random">Random each game</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span id="themeLabel">Theme</span>
+            <select id="themeSelect">
+              <option id="themeSystemOption" value="system">System</option>
+              <option id="themeLightOption" value="light">Light</option>
+              <option id="themeDarkOption" value="dark">Dark</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span id="languageLabel">Language</span>
+            <select id="languageSelect">
+              <option id="languageAutoOption" value="auto">System / browser</option>
+              <option id="languageRussianOption" value="ru">Русский</option>
+              <option id="languageEnglishOption" value="en">English</option>
+            </select>
+          </label>
+          <label class="toggle-field">
+            <input id="soundCheckbox" type="checkbox" />
+            <span id="soundLabel">Result sound</span>
+          </label>
+          <label class="toggle-field">
+            <input id="vibrationCheckbox" type="checkbox" />
+            <span id="vibrationLabel">Vibration</span>
+          </label>
+          <div class="install-field">
+            <button id="installButton" type="button" hidden>Install app</button>
+            <span id="installHint">Installation is offered by the browser when available.</span>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button id="settingsCloseButton" type="button"></button>
+          <button id="settingsSaveButton" type="button" class="primary"></button>
+        </div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+      <span id="toastText"></span>
+      <button id="toastActionButton" type="button" hidden></button>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
