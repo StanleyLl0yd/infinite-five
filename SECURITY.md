@@ -10,7 +10,7 @@ Do not include real credentials, personal data, or third-party secrets in a repo
 
 ## Supported version
 
-Security fixes are applied to the current code on `main` and the officially hosted Infinite Five web application. Older commits, forks, mirrors, and unofficial deployments are not supported.
+Security fixes are applied to the latest published release, the current code on `main`, and the officially hosted Infinite Five web application. Older releases, unrelated historical commits, forks, mirrors, and unofficial deployments are not supported.
 
 ## Scope
 
