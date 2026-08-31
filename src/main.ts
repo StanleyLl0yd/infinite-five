@@ -3,7 +3,20 @@ import { registerSW } from 'virtual:pwa-register';
 import { requestAiMove } from './game/ai-client';
 import type { AiDifficulty } from './game/ai';
 import { Board } from './game/board';
-import { createShareUrl, readSharedGameFromHash } from './game/share';
+import {
+  addHistoryEntry,
+  createHistoryId,
+  parseHistory,
+  serializeHistory,
+  summarizeHistory,
+  type HistoryEntry
+} from './game/history';
+import {
+  createShareUrl,
+  decodeSharedGame,
+  encodeSharedGame,
+  readSharedGameFromHash
+} from './game/share';
 import { getWinningLine } from './game/win';
 import type { Mark, Move, Position, WinningLine } from './game/types';
 import { interpolate, resolveLocale, translations, type LanguagePreference, type Locale } from './i18n';
@@ -53,6 +66,7 @@ const legacyGameStorageKey = 'infinite-five.game.v2';
 const settingsStorageKey = 'infinite-five.settings.v2';
 const legacySettingsStorageKey = 'infinite-five.settings.v1';
 const statsStorageKey = 'infinite-five.stats.v1';
+const historyStorageKey = 'infinite-five.history.v1';
 const legacyThemeStorageKey = 'infinite-five.theme.v1';
 
 const defaultSettings: AppSettings = {
@@ -74,10 +88,12 @@ const getElement = <T extends Element>(selector: string): T => {
 };
 
 const canvas = getElement<HTMLCanvasElement>('#board');
+const boardKeyboardHelp = getElement<HTMLElement>('#boardKeyboardHelp');
 const status = getElement<HTMLElement>('#status');
 const centerButton = getElement<HTMLButtonElement>('#centerButton');
 const undoButton = getElement<HTMLButtonElement>('#undoButton');
 const themeButton = getElement<HTMLButtonElement>('#themeButton');
+const historyButton = getElement<HTMLButtonElement>('#historyButton');
 const settingsButton = getElement<HTMLButtonElement>('#settingsButton');
 const newGameButton = getElement<HTMLButtonElement>('#newGameButton');
 const modeSelect = getElement<HTMLSelectElement>('#modeSelect');
@@ -108,6 +124,11 @@ const resumeDialogTitle = getElement<HTMLElement>('#resumeDialogTitle');
 const resumeDialogPrompt = getElement<HTMLElement>('#resumeDialogPrompt');
 const resumeContinueButton = getElement<HTMLButtonElement>('#resumeContinueButton');
 const resumeNewGameButton = getElement<HTMLButtonElement>('#resumeNewGameButton');
+const historyDialog = getElement<HTMLDialogElement>('#historyDialog');
+const historyDialogTitle = getElement<HTMLElement>('#historyDialogTitle');
+const historySummary = getElement<HTMLElement>('#historySummary');
+const historyList = getElement<HTMLElement>('#historyList');
+const historyCloseButton = getElement<HTMLButtonElement>('#historyCloseButton');
 const settingsDialog = getElement<HTMLDialogElement>('#settingsDialog');
 const settingsDialogTitle = getElement<HTMLElement>('#settingsDialogTitle');
 const settingsCloseButton = getElement<HTMLButtonElement>('#settingsCloseButton');
@@ -159,6 +180,7 @@ let aiTimer: number | null = null;
 let aiRequestVersion = 0;
 let resultTimer: number | null = null;
 let statistics: Statistics = { wins: 0, losses: 0 };
+let gameHistory: HistoryEntry[] = [];
 let replay: ReplayState | null = null;
 let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null;
@@ -231,6 +253,8 @@ const applyTranslations = (): void => {
   gameInfoRules.textContent = text.infoRules;
   gameOptions.setAttribute('aria-label', text.gameOptionsLabel);
   canvas.setAttribute('aria-label', text.boardLabel);
+  canvas.dataset.cellLabel = text.cellLabel;
+  boardKeyboardHelp.textContent = text.boardKeyboardHelp;
   modeLabel.textContent = text.modeLabel;
   modeAiOption.textContent = text.modeAi;
   modeLocalOption.textContent = text.modeLocal;
@@ -241,6 +265,7 @@ const applyTranslations = (): void => {
   difficultyExpertOption.textContent = text.difficultyExpert;
   centerButton.querySelector('.button-label')!.textContent = text.center;
   undoButton.querySelector('.button-label')!.textContent = text.undo;
+  historyButton.querySelector('.button-label')!.textContent = text.history;
   settingsButton.querySelector('.button-label')!.textContent = text.settings;
   newGameButton.querySelector('.button-label')!.textContent = text.newGame;
   resultDialogPrompt.textContent = text.resultPrompt;
@@ -251,6 +276,8 @@ const applyTranslations = (): void => {
   resumeDialogTitle.textContent = text.resumeTitle;
   resumeContinueButton.textContent = text.continueGame;
   resumeNewGameButton.textContent = text.newGame;
+  historyDialogTitle.textContent = text.historyTitle;
+  historyCloseButton.textContent = text.close;
   settingsDialogTitle.textContent = text.settingsTitle;
   settingsCloseButton.textContent = text.close;
   settingsSaveButton.textContent = text.saveSettings;
@@ -279,6 +306,7 @@ const applyTranslations = (): void => {
   replayExitButton.textContent = text.exitReplay;
   centerButton.title = text.center;
   undoButton.title = text.undo;
+  historyButton.title = text.history;
   settingsButton.title = text.settings;
   newGameButton.title = text.newGame;
 };
@@ -356,6 +384,14 @@ const saveStatistics = (): void => {
   localStorage.setItem(statsStorageKey, JSON.stringify(statistics));
 };
 
+const loadHistory = (): void => {
+  gameHistory = parseHistory(localStorage.getItem(historyStorageKey));
+};
+
+const saveHistory = (): void => {
+  localStorage.setItem(historyStorageKey, serializeHistory(gameHistory));
+};
+
 const validateMoves = (moves: unknown[]): moves is Move[] =>
   moves.every((move, index) => isMove(move) && move.mark === (index % 2 === 0 ? 'X' : 'O'));
 
@@ -421,10 +457,119 @@ const getResultText = (): string => {
 };
 
 const updateStatistics = (): void => {
+  const games = statistics.wins + statistics.losses;
+  const rate = games === 0 ? 0 : Math.round((statistics.wins / games) * 100);
   statsElement.textContent = interpolate(text.stats, {
     wins: statistics.wins,
-    losses: statistics.losses
+    losses: statistics.losses,
+    rate
   });
+};
+
+const difficultyName = (difficulty: AiDifficulty): string => {
+  if (difficulty === 'easy') return text.difficultyEasy;
+  if (difficulty === 'medium') return text.difficultyMedium;
+  if (difficulty === 'hard') return text.difficultyHard;
+  return text.difficultyExpert;
+};
+
+const recordHistory = (): void => {
+  if (!winner || replay) return;
+  const moves = [...board.getMoves()];
+  const id = createHistoryId(moves, winner);
+  if (gameHistory.some((entry) => entry.id === id)) return;
+
+  let encodedReplay: string | null = null;
+  try {
+    encodedReplay = encodeSharedGame(moves);
+  } catch {
+    encodedReplay = null;
+  }
+
+  gameHistory = addHistoryEntry(gameHistory, {
+    id,
+    completedAt: Date.now(),
+    mode: settings.mode,
+    difficulty: settings.mode === 'ai' ? settings.difficulty : null,
+    humanMark: settings.mode === 'ai' ? humanMark : null,
+    winner,
+    moves: moves.length,
+    replay: encodedReplay
+  });
+  saveHistory();
+};
+
+const revertRecordedHistory = (): void => {
+  if (!winner || replay) return;
+  const id = createHistoryId(board.getMoves(), winner);
+  const next = gameHistory.filter((entry) => entry.id !== id);
+  if (next.length === gameHistory.length) return;
+  gameHistory = next;
+  saveHistory();
+};
+
+const renderHistory = (): void => {
+  const summary = summarizeHistory(gameHistory);
+  historySummary.textContent = gameHistory.length === 0
+    ? ''
+    : interpolate(text.historySummary, {
+        games: summary.games,
+        average: summary.averageMoves,
+        rate: summary.aiWinRate
+      });
+  historyList.replaceChildren();
+
+  if (gameHistory.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'history-empty';
+    empty.textContent = text.historyEmpty;
+    historyList.append(empty);
+    return;
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  for (const entry of gameHistory) {
+    const row = document.createElement('div');
+    row.className = 'history-entry';
+    const copy = document.createElement('div');
+    copy.className = 'history-entry-copy';
+    const title = document.createElement('strong');
+    if (entry.mode === 'ai' && entry.humanMark && entry.difficulty) {
+      title.textContent = interpolate(
+        entry.winner === entry.humanMark ? text.historyAiWin : text.historyAiLoss,
+        { difficulty: difficultyName(entry.difficulty), moves: entry.moves }
+      );
+    } else {
+      title.textContent = interpolate(text.historyLocal, { winner: entry.winner, moves: entry.moves });
+    }
+    const date = document.createElement('span');
+    date.textContent = dateFormatter.format(new Date(entry.completedAt));
+    copy.append(title, date);
+    row.append(copy);
+
+    if (entry.replay) {
+      const replayButton = document.createElement('button');
+      replayButton.type = 'button';
+      replayButton.textContent = text.replay;
+      replayButton.addEventListener('click', () => {
+        const moves = decodeSharedGame(entry.replay ?? '');
+        if (!moves) return;
+        historyDialog.close();
+        enterReplay(moves, true, 0);
+      });
+      row.append(replayButton);
+    } else {
+      const unavailable = document.createElement('span');
+      unavailable.className = 'history-replay-unavailable';
+      unavailable.textContent = text.replayUnavailable;
+      row.append(unavailable);
+    }
+    historyList.append(row);
+  }
 };
 
 const updateStatus = (): void => {
@@ -544,6 +689,7 @@ const applyMove = (position: Position, mark: Mark): boolean => {
   if (winningLine) {
     winner = mark;
     recordResult();
+    recordHistory();
   } else {
     currentMark = mark === 'X' ? 'O' : 'X';
   }
@@ -706,6 +852,7 @@ const saveDialogSettings = (): void => {
 
 loadSettings();
 loadStatistics();
+loadHistory();
 applyTranslations();
 applyTheme();
 humanMark = chooseHumanMark();
@@ -725,6 +872,7 @@ if (sharedMoves) {
   resumeDialog.showModal();
 } else if (winner) {
   recordResult();
+  recordHistory();
   saveGame();
   window.setTimeout(showResultDialog, 180);
 } else if (settings.mode === 'ai' && currentMark === computerMark()) {
@@ -742,6 +890,12 @@ themeButton.addEventListener('click', () => {
   applyTheme();
   view.render();
 });
+
+historyButton.addEventListener('click', () => {
+  renderHistory();
+  historyDialog.showModal();
+});
+historyCloseButton.addEventListener('click', () => historyDialog.close());
 
 settingsButton.addEventListener('click', () => {
   syncSettingsDialog();
@@ -770,6 +924,7 @@ undoButton.addEventListener('click', () => {
   cancelAiTurn();
   cancelResultPresentation();
   revertRecordedResult();
+  revertRecordedHistory();
 
   const moves = board.getMoves();
   let humanMoveIndex = -1;
