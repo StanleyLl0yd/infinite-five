@@ -4,7 +4,7 @@ Infinite Five is a five-in-a-row game on an infinite board, built as a responsiv
 
 ## Play
 
-The production site is deployed with GitHub Pages:
+The production site will be published with GitHub Pages at:
 
 https://stanleyll0yd.github.io/infinite-five/
 
