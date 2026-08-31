@@ -1,0 +1,65 @@
+name: Tauri Bootstrap
+
+on:
+  push:
+    branches: [feature/tauri-cross-platform-spike]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tauri-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Configure Android toolchain
+        run: |
+          test -n "${ANDROID_HOME:-}"
+          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -d "$NDK_PATH"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Generate Tauri icons
+        run: npm run tauri icon public/icon-512.png
+
+      - name: Initialize Android target
+        run: npm run tauri android init -- --ci
+
+      - name: Generate Cargo lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Verify web application
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          npm test
+          npm run build
+
+      - name: Commit generated Tauri files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json src-tauri/Cargo.lock src-tauri/icons src-tauri/gen/android
+          if ! git diff --cached --quiet; then
+            git commit -m "Generate Tauri platform files"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
