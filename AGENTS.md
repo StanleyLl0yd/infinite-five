@@ -5,6 +5,12 @@
 - Inspect the existing implementation before changing it.
 - Preserve the core product: five in a row on an infinite board without progression systems, resources, power-ups, world maps, or unrelated meta mechanics unless explicitly approved.
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
+- Treat the TypeScript/Vite application as the shared game implementation for web and native targets; do not create separate platform-specific game engines.
+- Use Tauri 2 as the native application shell for Android, macOS, iOS, and any later desktop targets unless a platform constraint is demonstrated and an alternative is explicitly approved.
+- Keep the native Application ID / Bundle ID fixed as `com.sl.infinitefive` unless an identifier migration is explicitly approved. Android namespace, applicationId, Kotlin package declarations, generated package paths, tests, workflows, and documentation must stay aligned with it.
+- Keep native integrations minimal and isolated behind platform boundaries. Native Kotlin/Swift/Rust code must not duplicate game rules, AI, replay, history, or localization logic without a compelling platform requirement.
+- Native production builds must bundle the frontend locally and must not load GitHub Pages as their primary application UI.
+- Keep PWA service workers, install prompts, and web update handling browser-only; native package updates belong to the platform distribution channel.
 - Keep game rules and AI logic independent from rendering and browser UI where practical.
 - Keep AI candidate locality strictly as a search optimization; never turn it into a restriction on legal human moves.
 - Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.
@@ -15,7 +21,7 @@
 - Keep local completed-game history bounded and versioned, and do not let history or shared replays overwrite an unrelated saved game.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
-- Keep `package-lock.json` committed and use `npm ci` in automated verification and deployment.
+- Keep `package-lock.json` and native lockfiles committed where applicable, and use reproducible installs in automated verification and deployment.
 - Treat high and critical dependency audit findings as blocking unless there is a documented, reviewed reason to accept the risk.
 - Pin every third-party GitHub Action to a full-length commit SHA and keep checkout credentials disabled unless a narrowly scoped write operation explicitly requires them.
 - Do not weaken CI, CodeQL, Semgrep, Gitleaks, secret scanning, push protection, dependency monitoring, or branch protection without an explicit and compelling reason.
@@ -23,8 +29,8 @@
 - Preserve offline/PWA behavior and GitHub Pages compatibility.
 - Maintain Russian and English user-facing text. Auto language selection must use Russian when the browser or resolved system locale includes Russian; English is the fallback. Manual language override may be offered but must not break Auto behavior.
 - Preserve saved-game compatibility where practical and do not let shared replay links overwrite an unrelated local saved game.
-- Add or update tests for game logic, AI behavior, locale handling, sharing formats, local history, bounded rendering, and regressions where practical.
-- Run relevant tests, dependency audit, security checks where applicable, and the production build before considering a task complete.
+- Add or update tests for game logic, AI behavior, locale handling, sharing formats, local history, bounded rendering, native identity, and regressions where practical.
+- Run relevant tests, dependency audit, security checks where applicable, the production web build, and affected native build checks before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
 - Comments must be minimal, necessary, current, and English-only.
 - Do not keep commented-out code or obsolete TODOs.
