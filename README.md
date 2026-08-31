@@ -7,6 +7,8 @@
 <img src="docs/assets/readme/infinite-five-board.svg" alt="Infinite Five game board" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/ci.yml?branch=main&label=CI&labelColor=111827&color=16A34A)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/codeql.yml?branch=main&label=CodeQL&labelColor=111827&color=2563EB)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/codeql.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/security.yml?branch=main&label=Security&labelColor=111827&color=E11D48)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/security.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
@@ -117,35 +119,52 @@ The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md
 
 Requirements:
 
-- a Node.js version supported by the current Vite release;
+- Node.js 22 or another version supported by the current Vite release;
 - npm.
 
 ```bash
 git clone https://github.com/StanleyLl0yd/infinite-five.git
 cd infinite-five
-npm install
+npm ci
 npm run dev
 ```
 
 Run the main local verification:
 
 ```bash
+npm audit --audit-level=high
 npm test
 npm run build
 ```
 
-The production build performs TypeScript validation before Vite creates the deployable bundle.
+The committed `package-lock.json` keeps dependency resolution reproducible. The production build performs TypeScript validation before Vite creates the deployable bundle.
 
 ## ✅ Quality checks
 
 Pushes and pull requests are verified by GitHub Actions with:
 
-- dependency installation;
+- reproducible dependency installation through `npm ci`;
+- blocking npm audit for high and critical findings;
 - Vitest unit tests;
-- TypeScript validation;
-- production build.
+- TypeScript validation and production build;
+- CodeQL analysis with `security-extended` queries;
+- Semgrep security and secret rules;
+- Gitleaks full-history secret scanning.
 
-A separate workflow builds and publishes GitHub Pages after changes land on `main`.
+A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`.
+
+## 🔐 Security
+
+Repository security is designed around least privilege and supply-chain protection:
+
+- GitHub Secret Scanning and Push Protection are enabled;
+- Dependabot monitors npm packages and GitHub Actions;
+- the default `GITHUB_TOKEN` is read-only and workflows request only the permissions they need;
+- third-party GitHub Actions are pinned to full commit SHAs;
+- CI, CodeQL, Semgrep, and Gitleaks are intended to be required checks for `main`;
+- force pushes and deletion of the protected default branch are prohibited by the repository ruleset.
+
+Please report vulnerabilities privately and never through a public issue. See [`SECURITY.md`](SECURITY.md).
 
 ## 🌍 Languages
 
