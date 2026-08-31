@@ -1,7 +1,7 @@
 export type Locale = 'en' | 'ru';
 
-export const resolveLocale = (language: string): Locale =>
-  language.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+export const resolveLocale = (...languages: Array<string | null | undefined>): Locale =>
+  languages.some((language) => language?.trim().toLowerCase().startsWith('ru')) ? 'ru' : 'en';
 
 export const translations = {
   en: {
@@ -21,6 +21,8 @@ export const translations = {
     light: 'Light',
     dark: 'Dark',
     newGame: 'New game',
+    close: 'Close',
+    resultPrompt: 'Play another game?',
     boardLabel: 'Infinite Five game board',
     gameOptionsLabel: 'Game options',
     switchToLight: 'Switch to light theme',
@@ -51,6 +53,8 @@ export const translations = {
     light: 'Светлая',
     dark: 'Тёмная',
     newGame: 'Новая игра',
+    close: 'Закрыть',
+    resultPrompt: 'Сыграть ещё раз?',
     boardLabel: 'Игровое поле Infinite Five',
     gameOptionsLabel: 'Настройки игры',
     switchToLight: 'Переключить на светлую тему',
