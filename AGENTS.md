@@ -30,5 +30,6 @@
 - Do not keep commented-out code or obsolete TODOs.
 - Source identifiers must be English.
 - Keep `main` buildable and use focused commits and pull requests.
+- Keep repository history tidy: close superseded automated pull requests and remove branches after their work is merged or intentionally abandoned; keep only active work branches.
 - After every release, review and update all repository text files so they accurately reflect the released state.
 - Preserve the established formatting and visual presentation of text files during release updates; add, change, or remove formatting only when there is a compelling or urgent need.
