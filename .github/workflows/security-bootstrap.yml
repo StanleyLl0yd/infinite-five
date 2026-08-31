@@ -1,0 +1,44 @@
+name: Security Bootstrap
+
+on:
+  push:
+    branches: [security/hardening-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Generate lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Capture audit report
+        run: npm audit --json > audit.json || true
+
+      - name: Capture outdated dependencies
+        run: npm outdated --json > outdated.json || true
+
+      - name: Upload dependency reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dependency-bootstrap
+          path: |
+            package-lock.json
+            audit.json
+            outdated.json
+          if-no-files-found: error
+          retention-days: 1
