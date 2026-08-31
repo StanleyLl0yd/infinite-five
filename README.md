@@ -64,7 +64,7 @@ Current source version: **0.2.0** · Web + PWA · GitHub Pages
 | Place a mark | Click a cell | Short tap |
 | Move the board | Drag | One-finger drag |
 | Zoom | Mouse wheel | Two-finger pinch |
-| Return to latest move | `Center` | `Center` |
+| Return to latest move | `Center` | Hidden in the current compact layout |
 | Undo against AI | `Undo` | `Undo` |
 | Start over | `New game` | `New game` |
 
