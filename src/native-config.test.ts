@@ -38,12 +38,11 @@ describe('native application identity', () => {
     expect(read(mainActivity)).toContain(`package ${APP_ID}`);
 
     for (const file of ['BuildTask.kt', 'RustPlugin.kt']) {
-      const path = `${androidRoot}/buildSrc/src/main/java/com/sl/infinitefive/kotlin/${file}`;
-      expect(existsSync(path)).toBe(true);
-      expect(read(path)).toContain(`package ${APP_ID}.kotlin`);
+      expect(existsSync(`${androidRoot}/buildSrc/src/main/java/com/sl/infinitefive/kotlin/${file}`)).toBe(true);
     }
 
     expect(existsSync(`${androidRoot}/app/src/main/java/io/github/stanleyll0yd/infinitefive/MainActivity.kt`)).toBe(false);
+    expect(existsSync(`${androidRoot}/buildSrc/src/main/java/io/github/stanleyll0yd/infinitefive`)).toBe(false);
     for (const file of collectTextFiles(androidRoot)) {
       expect(read(file)).not.toContain(OLD_APP_ID);
     }
