@@ -41,6 +41,23 @@ jobs:
       - name: Generate Tauri icons
         run: npm run tauri icon public/icon.svg
 
+      - name: Repair web 512 icon
+        run: |
+          python - <<'PY'
+          import struct
+          path = 'src-tauri/icons/icon.png'
+          with open(path, 'rb') as handle:
+              signature = handle.read(8)
+              handle.read(4)
+              chunk_type = handle.read(4)
+              data = handle.read(13)
+          assert signature == b'\x89PNG\r\n\x1a\n'
+          assert chunk_type == b'IHDR'
+          width, height = struct.unpack('>II', data[:8])
+          assert (width, height) == (512, 512), (width, height)
+          PY
+          cp src-tauri/icons/icon.png public/icon-512.png
+
       - name: Initialize Android target
         run: npm run tauri android init -- --ci
 
@@ -58,7 +75,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json src-tauri/Cargo.lock src-tauri/icons src-tauri/gen/android
+          git add package-lock.json public/icon-512.png src-tauri/Cargo.lock src-tauri/icons src-tauri/gen/android
           if ! git diff --cached --quiet; then
             git commit -m "Generate Tauri platform files"
             git push origin "HEAD:${GITHUB_REF_NAME}"
