@@ -7,6 +7,8 @@
 <img src="docs/assets/readme/infinite-five-board.svg" alt="Игровое поле Infinite Five" width="100%">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/ci.yml?branch=main&label=CI&labelColor=111827&color=16A34A)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/codeql.yml?branch=main&label=CodeQL&labelColor=111827&color=2563EB)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/codeql.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/StanleyLl0yd/infinite-five/security.yml?branch=main&label=Security&labelColor=111827&color=E11D48)](https://github.com/StanleyLl0yd/infinite-five/actions/workflows/security.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
@@ -117,35 +119,52 @@ src/
 
 Требования:
 
-- Node.js с поддержкой текущего Vite;
+- Node.js 22 или другая версия, поддерживаемая текущим Vite;
 - npm.
 
 ```bash
 git clone https://github.com/StanleyLl0yd/infinite-five.git
 cd infinite-five
-npm install
+npm ci
 npm run dev
 ```
 
 Основная локальная проверка:
 
 ```bash
+npm audit --audit-level=high
 npm test
 npm run build
 ```
 
-Production build включает TypeScript-проверку перед сборкой Vite.
+Закоммиченный `package-lock.json` обеспечивает воспроизводимое разрешение зависимостей. Production build включает TypeScript-проверку перед сборкой Vite.
 
 ## ✅ Проверки качества
 
-Push и pull request автоматически проходят GitHub Actions CI:
+Push и pull request автоматически проходят GitHub Actions:
 
-- установка зависимостей;
+- воспроизводимая установка зависимостей через `npm ci`;
+- блокирующий npm audit для high и critical уязвимостей;
 - unit-тесты Vitest;
-- TypeScript-проверка;
-- production build.
+- TypeScript-проверка и production build;
+- CodeQL с набором запросов `security-extended`;
+- Semgrep с правилами безопасности и поиска секретов;
+- Gitleaks с проверкой полной истории Git.
 
-Отдельный workflow собирает и публикует GitHub Pages после изменений в `main`.
+Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`.
+
+## 🔐 Безопасность
+
+Защита репозитория построена на принципе минимальных привилегий и защите цепочки поставки:
+
+- включены GitHub Secret Scanning и Push Protection;
+- Dependabot отслеживает npm-зависимости и GitHub Actions;
+- `GITHUB_TOKEN` по умолчанию имеет только права чтения, а workflow запрашивают только необходимые разрешения;
+- сторонние GitHub Actions закреплены полными commit SHA;
+- CI, CodeQL, Semgrep и Gitleaks должны быть обязательными проверками для `main`;
+- ruleset запрещает force-push и удаление защищённой основной ветки.
+
+Уязвимости нужно сообщать только приватно, не через публичный issue. Порядок описан в [`SECURITY.md`](SECURITY.md).
 
 ## 🌍 Языки
 

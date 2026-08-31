@@ -69,7 +69,7 @@ Win detection starts from the latest move and scans the four relevant axes. The 
 - Vite for development and production builds.
 - vite-plugin-pwa for installation and offline support.
 - localStorage for the initial local persistence layer.
-- GitHub Actions for GitHub Pages deployment.
+- GitHub Actions for CI, security verification and GitHub Pages deployment.
 
 Game rules must remain independent from rendering and browser UI so the engine can be tested separately and reused by an Android wrapper later.
 
@@ -86,3 +86,5 @@ Game rules must remain independent from rendering and browser UI so the engine c
 ## Repository conventions
 
 Keep implementation comments to the minimum necessary. Comments must be current, useful and written in English. Prefer clear names and small modules over explanatory comments. Do not commit generated build output, local environment files or secrets.
+
+Keep the npm lockfile committed and use reproducible installs in automation. Third-party GitHub Actions must remain pinned to full commit SHAs, and high or critical dependency audit findings must block integration unless a reviewed exception is explicitly documented.
