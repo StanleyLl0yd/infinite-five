@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   addHistoryEntry,
+  createHistoryFingerprint,
   createHistoryId,
   maxHistoryEntries,
   parseHistory,
+  removeLatestMatchingHistoryEntry,
   serializeHistory,
   summarizeHistory,
   type HistoryEntry
@@ -21,6 +23,12 @@ const entry = (index: number, overrides: Partial<HistoryEntry> = {}): HistoryEnt
   replay: `replay-${index}`,
   ...overrides
 });
+
+const repeatedMoves: Move[] = [
+  { x: 0, y: 0, mark: 'X' },
+  { x: 1, y: 0, mark: 'O' },
+  { x: 0, y: 1, mark: 'X' }
+];
 
 describe('game history', () => {
   it('keeps newest unique entries within the history limit', () => {
@@ -62,14 +70,25 @@ describe('game history', () => {
     });
   });
 
-  it('creates stable ids from finished move sequences', () => {
-    const moves: Move[] = [
-      { x: 0, y: 0, mark: 'X' },
-      { x: 1, y: 0, mark: 'O' },
-      { x: 0, y: 1, mark: 'X' }
+  it('gives repeated identical games distinct occurrence ids', () => {
+    const first = createHistoryId(repeatedMoves, 'X', 1_700_000_000_000);
+    const second = createHistoryId(repeatedMoves, 'X', 1_700_000_000_001);
+
+    expect(first).not.toBe(second);
+    expect(first.startsWith(`${createHistoryFingerprint(repeatedMoves, 'X')}-`)).toBe(true);
+    expect(second.startsWith(`${createHistoryFingerprint(repeatedMoves, 'X')}-`)).toBe(true);
+  });
+
+  it('removes only the newest matching repeated game', () => {
+    const firstId = createHistoryId(repeatedMoves, 'X', 1_700_000_000_000);
+    const secondId = createHistoryId(repeatedMoves, 'X', 1_700_000_000_001);
+    const history = [
+      entry(2, { id: secondId, winner: 'X', moves: repeatedMoves.length }),
+      entry(1, { id: firstId, winner: 'X', moves: repeatedMoves.length })
     ];
 
-    expect(createHistoryId(moves, 'X')).toBe(createHistoryId(moves, 'X'));
-    expect(createHistoryId(moves, 'X')).not.toBe(createHistoryId(moves, 'O'));
+    expect(removeLatestMatchingHistoryEntry(history, repeatedMoves, 'X').map((item) => item.id)).toEqual([
+      firstId
+    ]);
   });
 });
