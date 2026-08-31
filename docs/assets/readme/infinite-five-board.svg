@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Infinite Five board</title>
+  <desc id="desc">A clean infinite grid with blue X marks, red O marks, and a green five-in-a-row winning line.</desc>
+  <defs>
+    <pattern id="grid" width="52" height="52" patternUnits="userSpaceOnUse">
+      <path d="M52 0H0V52" fill="none" stroke="#dbe3ed" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="420" rx="24" fill="#ffffff"/>
+  <rect width="1200" height="64" rx="24" fill="#111827"/>
+  <rect y="40" width="1200" height="24" fill="#111827"/>
+
+  <g transform="translate(22 14)">
+    <rect width="48" height="36" rx="10" fill="#f8fafc"/>
+    <text x="24" y="25" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#111827">∞5</text>
+    <text x="62" y="25" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#f8fafc">Infinite Five</text>
+  </g>
+
+  <rect y="64" width="1200" height="356" fill="url(#grid)"/>
+
+  <g stroke="#2563eb" stroke-width="7" stroke-linecap="round">
+    <path d="M365 165l22 22M387 165l-22 22"/>
+    <path d="M417 165l22 22M439 165l-22 22"/>
+    <path d="M469 217l22 22M491 217l-22 22"/>
+    <path d="M469 269l22 22M491 269l-22 22"/>
+    <path d="M417 321l22 22M439 321l-22 22"/>
+    <path d="M521 321l22 22M543 321l-22 22"/>
+  </g>
+
+  <g fill="none" stroke="#e11d48" stroke-width="7">
+    <circle cx="428" cy="226" r="15"/>
+    <circle cx="480" cy="278" r="15"/>
+    <circle cx="532" cy="330" r="15"/>
+    <circle cx="584" cy="382" r="15"/>
+    <circle cx="376" cy="174" r="15"/>
+    <circle cx="376" cy="226" r="15"/>
+    <circle cx="376" cy="278" r="15"/>
+  </g>
+
+  <line x1="376" y1="174" x2="584" y2="382" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+
+  <g transform="translate(822 118)">
+    <rect width="320" height="212" rx="20" fill="#f8fafc" stroke="#e2e8f0"/>
+    <g fill="#111827" font-family="Arial, Helvetica, sans-serif">
+      <text x="28" y="46" font-size="34" font-weight="700">5+</text>
+      <text x="28" y="82" font-size="16" font-weight="700">IN A ROW</text>
+      <text x="28" y="123" font-size="15" fill="#64748b">horizontal · vertical · diagonal</text>
+      <text x="28" y="158" font-size="15" fill="#64748b">drag · zoom · keep playing</text>
+    </g>
+    <g transform="translate(238 31)">
+      <path d="M0 0l28 28M28 0L0 28" stroke="#2563eb" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="14" cy="78" r="14" fill="none" stroke="#e11d48" stroke-width="7"/>
+    </g>
+  </g>
+
+  <rect x="0.5" y="0.5" width="1199" height="419" rx="23.5" fill="none" stroke="#e2e8f0"/>
+</svg>
