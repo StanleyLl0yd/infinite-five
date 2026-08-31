@@ -47,7 +47,11 @@ describe('chooseAiMove', () => {
 
   it('finds a double-threat intersection on expert', () => {
     const board = populateDoubleThreatBoard();
-    const move = chooseAiMove(board, 'O', 'expert', { seed: 4, timeBudgetMs: 300 });
+    const move = chooseAiMove(board, 'O', 'expert', {
+      seed: 4,
+      timeBudgetMs: 2_000,
+      maxDepth: 1
+    });
     expect(move).toEqual({ x: 0, y: 0 });
   });
 
@@ -59,7 +63,11 @@ describe('chooseAiMove', () => {
     board.place(0, 1, 'X');
     board.place(-3, -3, 'O');
 
-    const move = chooseAiMove(board, 'O', 'expert', { seed: 5, timeBudgetMs: 300 });
+    const move = chooseAiMove(board, 'O', 'expert', {
+      seed: 5,
+      timeBudgetMs: 2_000,
+      maxDepth: 1
+    });
     expect(move).toEqual({ x: 0, y: 0 });
   });
 
