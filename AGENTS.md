@@ -10,6 +10,9 @@
 - Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.
 - Turn repeatable Hard or Expert mistakes into deterministic AI regression cases before or alongside the fix, and keep resolved cases in the suite unless the game rules change.
 - Treat AI self-play as a regression and tuning signal, not as proof that one difficulty is objectively stronger from a small sample.
+- Preserve keyboard board operation, visible focus, localized assistive guidance, and reduced-motion behavior when changing Canvas input or rendering.
+- Keep the Canvas render path bounded to the visible coordinate window; do not regress to scanning the full move history per frame without measured evidence and an explicit reason.
+- Keep local completed-game history bounded and versioned, and do not let history or shared replays overwrite an unrelated saved game.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Keep `package-lock.json` committed and use `npm ci` in automated verification and deployment.
@@ -20,7 +23,7 @@
 - Preserve offline/PWA behavior and GitHub Pages compatibility.
 - Maintain Russian and English user-facing text. Auto language selection must use Russian when the browser or resolved system locale includes Russian; English is the fallback. Manual language override may be offered but must not break Auto behavior.
 - Preserve saved-game compatibility where practical and do not let shared replay links overwrite an unrelated local saved game.
-- Add or update tests for game logic, AI behavior, locale handling, sharing formats, and regressions where practical.
+- Add or update tests for game logic, AI behavior, locale handling, sharing formats, local history, bounded rendering, and regressions where practical.
 - Run relevant tests, dependency audit, security checks where applicable, and the production build before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
 - Comments must be minimal, necessary, current, and English-only.

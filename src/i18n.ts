@@ -21,6 +21,7 @@ export const translations = {
     center: 'Center',
     undo: 'Undo',
     settings: 'Settings',
+    history: 'History',
     light: 'Light',
     dark: 'Dark',
     newGame: 'New game',
@@ -40,6 +41,13 @@ export const translations = {
     shareUnavailable: 'Copy this game link:',
     resumeTitle: 'Continue saved game?',
     resumePrompt: 'A game with {moves} moves is saved on this device.',
+    historyTitle: 'Game history',
+    historyEmpty: 'Finished games will appear here on this device.',
+    historySummary: '{games} recent games · average {average} moves · AI win rate {rate}%',
+    historyAiWin: 'Win · {difficulty} · {moves} moves',
+    historyAiLoss: 'Loss · {difficulty} · {moves} moves',
+    historyLocal: '{winner} wins · {moves} moves',
+    replayUnavailable: 'Replay is unavailable for games longer than 2,000 moves.',
     settingsTitle: 'Settings',
     sideLabel: 'Your side vs computer',
     sideX: 'X — first move',
@@ -62,6 +70,9 @@ export const translations = {
     updateNow: 'Update',
     offlineReady: 'Infinite Five is ready to work offline.',
     boardLabel: 'Infinite Five game board',
+    boardKeyboardHelp:
+      'Keyboard: arrow keys move between cells, Enter or Space places a mark, Home returns to the latest move, plus and minus zoom.',
+    cellLabel: 'Cell',
     gameOptionsLabel: 'Game options',
     switchToLight: 'Switch to light theme',
     switchToDark: 'Switch to dark theme',
@@ -72,7 +83,7 @@ export const translations = {
     computerTurn: 'Computer to move ({mark})',
     markWins: '{mark} wins',
     markTurn: '{mark} to move',
-    stats: 'AI: {wins} wins · {losses} losses'
+    stats: 'AI: {wins} wins · {losses} losses · {rate}% win rate'
   },
   ru: {
     metaDescription: 'Infinite Five — пять в ряд на бесконечном поле.',
@@ -90,6 +101,7 @@ export const translations = {
     center: 'К ходу',
     undo: 'Отменить',
     settings: 'Настройки',
+    history: 'История',
     light: 'Светлая',
     dark: 'Тёмная',
     newGame: 'Новая игра',
@@ -109,6 +121,13 @@ export const translations = {
     shareUnavailable: 'Скопируйте ссылку на партию:',
     resumeTitle: 'Продолжить сохранённую игру?',
     resumePrompt: 'На этом устройстве сохранена партия: {moves} ходов.',
+    historyTitle: 'История партий',
+    historyEmpty: 'Завершённые партии на этом устройстве будут появляться здесь.',
+    historySummary: 'Последних партий: {games} · в среднем {average} ходов · победы над ИИ {rate}%',
+    historyAiWin: 'Победа · {difficulty} · ходов: {moves}',
+    historyAiLoss: 'Поражение · {difficulty} · ходов: {moves}',
+    historyLocal: 'Победил {winner} · ходов: {moves}',
+    replayUnavailable: 'Повтор недоступен для партий длиннее 2000 ходов.',
     settingsTitle: 'Настройки',
     sideLabel: 'Ваша сторона против компьютера',
     sideX: 'X — первый ход',
@@ -131,6 +150,9 @@ export const translations = {
     updateNow: 'Обновить',
     offlineReady: 'Infinite Five готова к работе без сети.',
     boardLabel: 'Игровое поле Infinite Five',
+    boardKeyboardHelp:
+      'Клавиатура: стрелки перемещают курсор по клеткам, Enter или пробел ставят знак, Home возвращает к последнему ходу, плюс и минус меняют масштаб.',
+    cellLabel: 'Клетка',
     gameOptionsLabel: 'Настройки игры',
     switchToLight: 'Переключить на светлую тему',
     switchToDark: 'Переключить на тёмную тему',
@@ -141,7 +163,7 @@ export const translations = {
     computerTurn: 'Ход компьютера ({mark})',
     markWins: 'Победил {mark}',
     markTurn: 'Ход: {mark}',
-    stats: 'ИИ: побед {wins} · поражений {losses}'
+    stats: 'ИИ: побед {wins} · поражений {losses} · {rate}% побед'
   }
 } as const;
 

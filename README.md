@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.3.1-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.4.0-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current source version: **0.3.1** · Web + PWA · GitHub Pages
+Current source version: **0.4.0** · Web + PWA · GitHub Pages
 
 ## 🎯 Rules
 
@@ -41,40 +41,41 @@ Current source version: **0.3.1** · Web + PWA · GitHub Pages
 
 ## ✨ Current build
 
-- infinite Canvas board;
+- infinite Canvas board with visible-window rendering for long-game responsiveness;
 - **vs computer** mode with Easy, Medium, Hard, and **Expert** AI;
 - stronger Medium and Hard tactical play with explicit fork defense;
-- Expert AI combines five attack/defense/spatial candidate views and rewards moves that recur across several views;
-- Expert checks immediate wins, mandatory blocks and offensive/defensive double threats before deeper search;
-- iterative deepening evaluates all root alternatives at each completed depth instead of letting an expired search favor early candidates;
+- Expert AI combines five attack/defense/spatial candidate views, double-threat detection, and iterative alpha-beta deepening;
 - AI calculation runs in a Web Worker so deeper search does not block the board UI;
-- deterministic AI regression corpus, search diagnostics and short Expert-vs-Hard self-play smoke tests;
+- deterministic AI regression corpus, search diagnostics, and short Expert-vs-Hard self-play smoke tests;
 - choice of X, O, or a random side against the computer;
 - local **two-player** play on one device;
-- five-or-more win detection, latest-move indication, animated winning line, and post-game emphasis;
+- five-or-more win detection, latest-move indication, winning-line animation, and post-game emphasis;
+- keyboard-accessible board navigation with arrows, Enter/Space placement, Home return, and keyboard zoom;
+- visible keyboard focus, localized assistive guidance, and reduced-motion support;
 - post-game actions for new game, replay, and sharing;
-- undo in AI games and local AI win/loss statistics;
+- undo in AI games and cumulative local AI wins, losses, and win rate;
+- local history of the **20 most recent completed games**, including replay when the compact replay format is available;
 - saved unfinished games with an explicit Continue / New game prompt;
-- replay controls for completed and shared games;
+- replay controls for completed, shared, and recent-history games;
 - compact share links that reconstruct the move sequence without a backend;
 - system/light/dark theme selection plus a quick theme toggle;
 - automatic Russian/English UI with an optional manual language override;
 - optional result sound and vibration;
 - safer touch dragging with reduced accidental moves;
 - mobile controls remain available as compact icon buttons instead of disappearing;
-- installable PWA with dedicated 192 px, 512 px, maskable, and Apple touch icons;
-- offline readiness and in-app update notification;
+- installable PWA with offline readiness and in-app update notification;
 - automatic hardened GitHub Pages deployment.
 
 ## 🕹 Controls
 
-| Action | Desktop | Phone / tablet |
+| Action | Desktop / keyboard | Phone / tablet |
 | --- | --- | --- |
-| Place a mark | Click a cell | Short tap |
-| Move the board | Drag | One-finger drag |
-| Zoom | Mouse wheel | Two-finger pinch |
-| Return to latest move | `Center` | `◎` |
+| Place a mark | Click, `Enter`, or `Space` | Short tap |
+| Move the board | Drag or move keyboard cursor with arrows | One-finger drag |
+| Zoom | Mouse wheel or `+` / `-` | Two-finger pinch |
+| Return to latest move | `Center` or `Home` | `◎` |
 | Undo against AI | `Undo` | `↶` |
+| History | `History` | `☷` |
 | Settings | `Settings` | `⚙` |
 | Start over | `New game` | `＋` |
 | Replay | Previous / Next | `←` / `→` |
@@ -90,9 +91,21 @@ Viewport movement never changes game coordinates: panning and zooming affect onl
 | Hard | Wider tactical candidate search, fork defense, fork creation and adversarial reply evaluation |
 | Expert | Five-profile candidate consensus, seeded tie ordering, two-sided double-threat detection and iterative alpha-beta deepening |
 
-Expert search is deliberately bounded by time, depth and candidate width. The production Web Worker gets a larger search budget than the synchronous fallback. A deeper Expert iteration is used only after every root candidate at that depth has been evaluated, which makes time-limited decisions more balanced and reproducible.
+Expert search is deliberately bounded by time, depth and candidate width. The production Web Worker gets a larger search budget than the synchronous fallback. A deeper Expert iteration is used only after every root candidate at that depth has been evaluated, which makes time-limited decisions more balanced.
 
 Real positions that expose repeatable Hard or Expert mistakes should become permanent regression cases. See [`docs/AI_LAB.md`](docs/AI_LAB.md) for the tuning and regression workflow.
+
+## ♿ Accessibility and performance
+
+The Canvas board can be focused and operated from the keyboard. Arrow keys move a visible cell cursor, Enter or Space places a mark, Home returns to the latest move, and plus/minus changes zoom. The same guidance is localized for assistive technology, and result animation respects `prefers-reduced-motion`.
+
+Long-game rendering does not scan the complete move history on every frame. The board queries only occupied cells in the visible coordinate window, while pan/zoom redraw requests are coalesced with `requestAnimationFrame`. A regression test exercises bounded queries with 5,000 stored moves. Profiling and regression rules are documented in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+
+## 🕘 Local history
+
+The browser keeps a bounded history of the 20 most recent completed games. Each entry records the result, move count, time, and AI difficulty when applicable. AI history feeds a compact win-rate summary. Games that fit the existing compact share codec can be replayed directly from history; exceptionally long games remain as result metadata without an oversized replay payload.
+
+History remains local to the device and opening a history replay does not overwrite an unrelated saved game.
 
 ## 🌐 Web and PWA
 
@@ -100,9 +113,9 @@ The official hosted version is available at:
 
 **https://stanleyll0yd.github.io/infinite-five/**
 
-The site can be installed as a PWA through a supported browser. The manifest includes standard and maskable PNG icons, while the Service Worker precaches the application shell for offline startup. When a new version is waiting, the UI offers an update action instead of silently keeping an old application shell indefinitely.
+The site can be installed as a PWA through a supported browser. The Service Worker precaches the application shell for offline startup. When a new version is waiting, the UI offers an update action instead of silently keeping an old application shell indefinitely.
 
-There is no account, backend, analytics, advertising, or tracking. The current game, settings, and local AI statistics are stored only in the browser's `localStorage`. Shared games are encoded into the URL fragment and do not require a server.
+There is no account, backend, analytics, advertising, or tracking. The current game, settings, local AI statistics, and recent-game history are stored only in the browser's `localStorage`. Shared games are encoded into the URL fragment and do not require a server.
 
 ## 🧱 Technology
 
@@ -119,7 +132,7 @@ There is no account, backend, analytics, advertising, or tracking. The current g
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-Game logic remains separate from Canvas rendering and browser UI so board rules, win detection, sharing, and AI can be tested independently and later reused if the project is packaged for Android.
+Game logic remains separate from Canvas rendering and browser UI so board rules, win detection, local history, sharing, and AI can be tested independently and later reused if the project is packaged for Android.
 
 ## 🗂 Architecture
 
@@ -130,19 +143,20 @@ src/
 │   ├── ai-client.ts       asynchronous AI worker client
 │   ├── ai.worker.ts       background AI execution
 │   ├── ai.test.ts         tactical AI regression corpus
-│   ├── ai.lab.test.ts     deterministic self-play and diagnostics
-│   ├── board.ts           infinite-board state
+│   ├── ai.lab.test.ts     self-play smoke tests and diagnostics
+│   ├── board.ts           sparse infinite-board state and bounded viewport queries
+│   ├── history.ts         bounded local completed-game history
 │   ├── share.ts           compact game URL encoding
 │   ├── types.ts           game types
 │   └── win.ts             winning-line detection
 ├── ui/
-│   └── canvas-board.ts    Canvas rendering, gestures, and win animation
+│   └── canvas-board.ts    Canvas rendering, gestures, keyboard input and win animation
 ├── i18n.ts                Russian / English interface
-├── main.ts                application state, settings, replay, and game flow
-└── styles.css             visual layer and responsive layout
+├── main.ts                application state, history, settings, replay and game flow
+└── styles.css             visual layer, accessibility and responsive layout
 ```
 
-The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md). AI tuning and regression conventions are documented in [`docs/AI_LAB.md`](docs/AI_LAB.md).
+The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md). AI tuning conventions are documented in [`docs/AI_LAB.md`](docs/AI_LAB.md), and long-game profiling guidance in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ## 🛠 Development
 
@@ -180,7 +194,8 @@ Pushes and pull requests are verified by GitHub Actions with:
 
 - reproducible dependency installation through `npm ci`;
 - blocking npm audit for high and critical findings;
-- Vitest unit and regression tests, including the AI Lab smoke suite;
+- Vitest unit and regression tests for board state, history, sharing, locales, AI tactics, and AI Lab smoke scenarios;
+- a 5,000-move bounded-render query regression;
 - TypeScript validation and production build;
 - CodeQL analysis with `security-extended` queries;
 - Semgrep security and secret rules;
@@ -207,16 +222,16 @@ Please report vulnerabilities privately and never through a public issue. See [`
 - **Русский** — manual override;
 - **English** — manual override.
 
-The selected language is applied to rules, modes, difficulty, settings, buttons, status messages, replay, sharing, and post-game dialogs.
+The selected language is applied to rules, modes, difficulty, settings, buttons, status messages, accessibility guidance, history, replay, sharing, and post-game dialogs.
 
 ## 🗺 Roadmap
 
-The immediate focus after the v0.3.1 AI stabilization release is:
+Completed in **v0.4.0**: keyboard accessibility, reduced-motion support, long-game render hardening, bounded local game history, history replay, and richer local AI statistics.
 
-- keep expanding the AI regression corpus with real player positions that expose repeatable mistakes;
-- accessibility and keyboard navigation;
-- performance profiling for very long games;
-- local game history and richer but still minimal statistics;
+Next priorities:
+
+- continue adding real-player AI regression positions;
+- release hardening and measured performance follow-up where profiling identifies a real bottleneck;
 - optional room-link online multiplayer without changing the core rules;
 - later, optional Android packaging through Capacitor.
 

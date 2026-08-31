@@ -40,6 +40,22 @@ describe('Board', () => {
     expect(board.get(0, 2)).toBe('O');
   });
 
+  it('returns only occupied cells inside bounded render coordinates', () => {
+    const board = new Board();
+    for (let index = 0; index < 5_000; index += 1) {
+      board.place(index * 3, index % 17, index % 2 === 0 ? 'X' : 'O');
+    }
+    board.place(-2, -2, 'X');
+    board.place(2, 2, 'O');
+
+    expect(board.getMovesInBounds(-3, 3, -3, 3)).toEqual([
+      { x: -2, y: -2, mark: 'X' },
+      { x: 0, y: 0, mark: 'X' },
+      { x: 3, y: 1, mark: 'O' },
+      { x: 2, y: 2, mark: 'O' }
+    ]);
+  });
+
   it('rejects duplicate cells while restoring', () => {
     const board = new Board();
 
