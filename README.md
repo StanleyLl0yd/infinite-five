@@ -12,6 +12,9 @@ https://stanleyll0yd.github.io/infinite-five/
 - computer opponent with Easy, Medium and Hard difficulty;
 - local X vs O play;
 - five-or-more win detection;
+- automatic Russian interface for Russian browser/system locales, English otherwise;
+- concise rules above the board;
+- new-game prompt after a win or loss;
 - AI-game undo;
 - AI win/loss statistics;
 - drag navigation;
@@ -45,4 +48,6 @@ See [docs/PRODUCT.md](docs/PRODUCT.md).
 
 ## License
 
-No license has been granted yet.
+Copyright © 2026 Stanley Lloyd. All rights reserved.
+
+The source code and all other repository contents are proprietary. They may be viewed for inspection, but copying, modification, redistribution, derivative works, reuse, hosting, or other use is prohibited without prior written permission. See [LICENSE](LICENSE).
