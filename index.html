@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#111827" />
-    <meta name="description" content="Infinite Five — five in a row on an infinite board." />
+    <meta id="metaDescription" name="description" content="Infinite Five — five in a row on an infinite board." />
     <link rel="icon" href="/infinite-five/icon.svg" type="image/svg+xml" />
     <title>Infinite Five</title>
   </head>
@@ -24,25 +24,37 @@
         </div>
       </header>
       <main class="game-shell">
-        <canvas id="board" aria-label="Infinite Five game board"></canvas>
-        <section class="game-options" aria-label="Game options">
-          <label class="option-field">
-            <span>Mode</span>
-            <select id="modeSelect">
-              <option value="ai">Vs computer</option>
-              <option value="local">Two players</option>
-            </select>
-          </label>
-          <label id="difficultyField" class="option-field">
-            <span>Difficulty</span>
-            <select id="difficultySelect">
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </label>
-          <div id="stats" class="stats" aria-live="polite">AI: 0 wins · 0 losses</div>
+        <section class="game-info">
+          <div class="game-info-copy">
+            <h1 id="gameInfoTitle">Five in a row on an infinite board</h1>
+            <p id="gameInfoRules">
+              X moves first. Be the first to make 5 or more of your marks in one horizontal,
+              vertical or diagonal line. Drag the board to move it and use the mouse wheel or
+              pinch to zoom.
+            </p>
+          </div>
+          <div class="game-options" aria-label="Game options">
+            <label class="option-field">
+              <span id="modeLabel">Game mode</span>
+              <select id="modeSelect">
+                <option id="modeAiOption" value="ai">Vs computer</option>
+                <option id="modeLocalOption" value="local">Two players</option>
+              </select>
+            </label>
+            <label id="difficultyField" class="option-field">
+              <span id="difficultyLabel">Difficulty</span>
+              <select id="difficultySelect">
+                <option id="difficultyEasyOption" value="easy">Easy</option>
+                <option id="difficultyMediumOption" value="medium">Medium</option>
+                <option id="difficultyHardOption" value="hard">Hard</option>
+              </select>
+            </label>
+            <div id="stats" class="stats" aria-live="polite">AI: 0 wins · 0 losses</div>
+          </div>
         </section>
+        <div class="board-shell">
+          <canvas id="board" aria-label="Infinite Five game board"></canvas>
+        </div>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
