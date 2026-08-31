@@ -7,6 +7,7 @@ import {
   addHistoryEntry,
   createHistoryId,
   parseHistory,
+  removeLatestMatchingHistoryEntry,
   serializeHistory,
   summarizeHistory,
   type HistoryEntry
@@ -476,8 +477,8 @@ const difficultyName = (difficulty: AiDifficulty): string => {
 const recordHistory = (): void => {
   if (!winner || replay) return;
   const moves = [...board.getMoves()];
-  const id = createHistoryId(moves, winner);
-  if (gameHistory.some((entry) => entry.id === id)) return;
+  const completedAt = Date.now();
+  const id = createHistoryId(moves, winner, completedAt);
 
   let encodedReplay: string | null = null;
   try {
@@ -488,7 +489,7 @@ const recordHistory = (): void => {
 
   gameHistory = addHistoryEntry(gameHistory, {
     id,
-    completedAt: Date.now(),
+    completedAt,
     mode: settings.mode,
     difficulty: settings.mode === 'ai' ? settings.difficulty : null,
     humanMark: settings.mode === 'ai' ? humanMark : null,
@@ -501,8 +502,7 @@ const recordHistory = (): void => {
 
 const revertRecordedHistory = (): void => {
   if (!winner || replay) return;
-  const id = createHistoryId(board.getMoves(), winner);
-  const next = gameHistory.filter((entry) => entry.id !== id);
+  const next = removeLatestMatchingHistoryEntry(gameHistory, board.getMoves(), winner);
   if (next.length === gameHistory.length) return;
   gameHistory = next;
   saveHistory();
@@ -872,7 +872,6 @@ if (sharedMoves) {
   resumeDialog.showModal();
 } else if (winner) {
   recordResult();
-  recordHistory();
   saveGame();
   window.setTimeout(showResultDialog, 180);
 } else if (settings.mode === 'ai' && currentMark === computerMark()) {
