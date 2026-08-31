@@ -6,6 +6,8 @@
 - Preserve the core product: five in a row on an infinite board without progression systems, resources, power-ups, world maps, or unrelated meta mechanics unless explicitly approved.
 - Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
 - Keep game rules and AI logic independent from rendering and browser UI where practical.
+- Keep AI candidate locality strictly as a search optimization; never turn it into a restriction on legal human moves.
+- Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Keep `package-lock.json` committed and use `npm ci` in automated verification and deployment.
@@ -14,8 +16,9 @@
 - Do not weaken CI, CodeQL, Semgrep, Gitleaks, secret scanning, push protection, dependency monitoring, or branch protection without an explicit and compelling reason.
 - Do not add analytics, ads, accounts, backend services, tracking, or unnecessary network access unless explicitly requested.
 - Preserve offline/PWA behavior and GitHub Pages compatibility.
-- Maintain Russian and English user-facing text. Russian must be selected when the browser or resolved system locale includes Russian; English is the fallback.
-- Add or update tests for game logic, AI behavior, locale handling, and regressions where practical.
+- Maintain Russian and English user-facing text. Auto language selection must use Russian when the browser or resolved system locale includes Russian; English is the fallback. Manual language override may be offered but must not break Auto behavior.
+- Preserve saved-game compatibility where practical and do not let shared replay links overwrite an unrelated local saved game.
+- Add or update tests for game logic, AI behavior, locale handling, sharing formats, and regressions where practical.
 - Run relevant tests, dependency audit, security checks where applicable, and the production build before considering a task complete.
 - Never commit passwords, API keys, tokens, private keys, signing material, local environment files, or generated secrets.
 - Comments must be minimal, necessary, current, and English-only.

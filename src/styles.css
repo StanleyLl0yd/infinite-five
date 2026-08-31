@@ -41,6 +41,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body,
 #app {
@@ -73,6 +77,7 @@ select {
 }
 
 button {
+  min-height: 40px;
   line-height: 1;
   padding: 10px 13px;
   cursor: pointer;
@@ -80,7 +85,7 @@ button {
 }
 
 select {
-  min-height: 36px;
+  min-height: 38px;
   padding: 7px 30px 7px 10px;
 }
 
@@ -100,7 +105,8 @@ select:disabled {
 }
 
 button:focus-visible,
-select:focus-visible {
+select:focus-visible,
+input:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--mark-x) 45%, transparent);
   outline-offset: 2px;
 }
@@ -109,6 +115,12 @@ button.primary {
   border-color: var(--primary-bg);
   background: var(--primary-bg);
   color: var(--primary-text);
+}
+
+.button-icon {
+  display: none;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .topbar {
@@ -152,7 +164,7 @@ button.primary {
 }
 
 .status {
-  min-width: 130px;
+  min-width: 150px;
   text-align: center;
   font-size: 14px;
   font-weight: 700;
@@ -167,7 +179,7 @@ button.primary {
 .actions {
   justify-self: end;
   display: flex;
-  gap: 8px;
+  gap: 7px;
 }
 
 .game-shell {
@@ -219,7 +231,8 @@ button.primary {
   min-width: 0;
 }
 
-.option-field > span {
+.option-field > span,
+.settings-field > span {
   padding-left: 2px;
   color: var(--muted);
   font-size: 10px;
@@ -261,8 +274,47 @@ button.primary {
   cursor: crosshair;
 }
 
-.result-dialog {
-  width: min(360px, calc(100vw - 32px));
+.replay-bar {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - 28px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(16px);
+}
+
+.replay-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.replay-copy strong {
+  font-size: 13px;
+}
+
+.replay-copy span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.replay-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.modal-dialog {
+  width: min(430px, calc(100vw - 28px));
   padding: 0;
   border: 1px solid var(--panel-border);
   border-radius: 16px;
@@ -271,36 +323,112 @@ button.primary {
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.3);
 }
 
-.result-dialog::backdrop {
+.modal-dialog::backdrop {
   background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
 }
 
-.result-dialog form {
+.dialog-body {
   padding: 22px;
 }
 
-.result-dialog h2 {
+.dialog-body h2 {
   margin: 0 0 8px;
   font-size: 22px;
   line-height: 1.2;
 }
 
-.result-dialog p {
+.dialog-body p {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
 }
 
-.result-dialog-actions {
+.dialog-details {
+  margin-top: 8px !important;
+  font-size: 12px !important;
+}
+
+.dialog-actions {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-@media (max-width: 900px) {
+.settings-dialog {
+  width: min(500px, calc(100vw - 28px));
+}
+
+.settings-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 5px;
+}
+
+.settings-field select {
+  width: 100%;
+}
+
+.toggle-field {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.toggle-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--mark-x);
+}
+
+.install-field {
+  display: grid;
+  gap: 6px;
+}
+
+.install-field span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.toast {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 28px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(16px);
+}
+
+:root[data-replay='true'] #board {
+  cursor: grab;
+}
+
+@media (max-width: 980px) {
   .topbar {
     grid-template-columns: auto 1fr auto;
     gap: 8px;
@@ -314,13 +442,19 @@ button.primary {
     min-width: 0;
   }
 
-  button {
-    padding: 10px;
-    font-size: 13px;
+  .button-icon {
+    display: inline;
   }
 
-  #centerButton {
+  .actions .button-label {
     display: none;
+  }
+
+  .actions button {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    padding: 0;
   }
 
   .game-info {
@@ -333,26 +467,50 @@ button.primary {
   }
 }
 
-@media (max-width: 560px) {
-  #themeButton {
-    display: none;
+@media (max-width: 620px) {
+  .topbar {
+    min-height: 54px;
+    padding-bottom: 7px;
+  }
+
+  .brand-symbol {
+    min-width: 34px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .status {
+    font-size: 12px;
+  }
+
+  .actions {
+    gap: 4px;
+  }
+
+  .actions button {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    border-radius: 9px;
   }
 
   .game-info {
-    padding-block: 8px;
+    padding: 7px max(10px, env(safe-area-inset-right)) 7px max(10px, env(safe-area-inset-left));
   }
 
   .game-info-copy h1 {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .game-info-copy p {
-    font-size: 11px;
-    line-height: 1.35;
+    font-size: 10.5px;
+    line-height: 1.32;
   }
 
   .game-options {
     width: 100%;
+    gap: 7px;
   }
 
   .option-field {
@@ -361,24 +519,63 @@ button.primary {
 
   .option-field select {
     width: 100%;
+    min-height: 36px;
+    font-size: 12px;
   }
 
   .stats {
     display: none;
   }
+
+  .replay-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .replay-copy {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .replay-actions {
+    display: grid;
+    grid-template-columns: 42px 42px 1fr 1.2fr;
+  }
+
+  .replay-actions button {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .dialog-body {
+    padding: 18px;
+  }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dialog-actions button {
+    width: 100%;
+  }
 }
 
-@media (max-width: 390px) {
-  #undoButton {
-    font-size: 0;
+@media (max-width: 410px) {
+  .actions button {
+    width: 34px;
+    min-width: 34px;
+    height: 36px;
+    min-height: 36px;
   }
 
-  #undoButton::after {
-    content: '↶';
-    font-size: 18px;
+  .button-icon {
+    font-size: 16px;
   }
 
-  #newGameButton {
-    padding-inline: 9px;
+  .game-info-copy p {
+    max-height: 2.65em;
+    overflow: hidden;
   }
 }

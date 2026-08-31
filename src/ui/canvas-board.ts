@@ -1,5 +1,5 @@
 import { Board } from '../game/board';
-import type { Position, WinningLine } from '../game/types';
+import type { Move, Position, WinningLine } from '../game/types';
 
 interface ScreenPoint {
   x: number;
@@ -34,11 +34,15 @@ export class CanvasBoard {
   private cameraY = 0.5;
   private pointerStart: ScreenPoint | null = null;
   private lastPointer: ScreenPoint | null = null;
+  private pointerType = 'mouse';
   private moved = false;
   private multiPointerGesture = false;
   private pinchDistance = 0;
   private pinchMidpoint: ScreenPoint | null = null;
   private winningLine: WinningLine | null = null;
+  private winProgress = 1;
+  private emphasizeWin = false;
+  private animationFrame: number | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -64,7 +68,37 @@ export class CanvasBoard {
   }
 
   setWinningLine(line: WinningLine | null): void {
+    this.stopAnimation();
     this.winningLine = line;
+    this.winProgress = 1;
+    this.emphasizeWin = line !== null;
+    this.render();
+  }
+
+  animateWinningLine(duration = 460): void {
+    if (!this.winningLine) {
+      return;
+    }
+    this.stopAnimation();
+    this.emphasizeWin = true;
+    this.winProgress = 0;
+    const start = performance.now();
+    const frame = (now: number): void => {
+      this.winProgress = clamp((now - start) / duration, 0, 1);
+      this.render();
+      if (this.winProgress < 1) {
+        this.animationFrame = requestAnimationFrame(frame);
+      } else {
+        this.animationFrame = null;
+      }
+    };
+    this.animationFrame = requestAnimationFrame(frame);
+  }
+
+  clearWinEmphasis(): void {
+    this.stopAnimation();
+    this.emphasizeWin = false;
+    this.winProgress = 1;
     this.render();
   }
 
@@ -142,6 +176,21 @@ export class CanvasBoard {
     ctx.stroke();
   }
 
+  private moveBelongsToWinningLine(move: Move): boolean {
+    if (!this.winningLine) {
+      return false;
+    }
+    const { start, end } = this.winningLine;
+    const lineX = end.x - start.x;
+    const lineY = end.y - start.y;
+    const moveX = move.x - start.x;
+    const moveY = move.y - start.y;
+    const collinear = lineX * moveY === lineY * moveX;
+    const withinX = move.x >= Math.min(start.x, end.x) && move.x <= Math.max(start.x, end.x);
+    const withinY = move.y >= Math.min(start.y, end.y) && move.y <= Math.max(start.y, end.y);
+    return collinear && withinX && withinY;
+  }
+
   private drawMoves(palette: Palette): void {
     const moves = this.board.getMoves();
     const lastMove = moves[moves.length - 1];
@@ -158,6 +207,11 @@ export class CanvasBoard {
         top + this.cellSize < 0
       ) {
         continue;
+      }
+
+      this.context.save();
+      if (this.emphasizeWin && this.winningLine && !this.moveBelongsToWinningLine(move)) {
+        this.context.globalAlpha = 0.28;
       }
 
       if (move === lastMove) {
@@ -182,6 +236,7 @@ export class CanvasBoard {
       }
 
       this.context.stroke();
+      this.context.restore();
     }
   }
 
@@ -192,8 +247,10 @@ export class CanvasBoard {
 
     const startX = this.worldToScreenX(this.winningLine.start.x + 0.5);
     const startY = this.worldToScreenY(this.winningLine.start.y + 0.5);
-    const endX = this.worldToScreenX(this.winningLine.end.x + 0.5);
-    const endY = this.worldToScreenY(this.winningLine.end.y + 0.5);
+    const fullEndX = this.worldToScreenX(this.winningLine.end.x + 0.5);
+    const fullEndY = this.worldToScreenY(this.winningLine.end.y + 0.5);
+    const endX = startX + (fullEndX - startX) * this.winProgress;
+    const endY = startY + (fullEndY - startY) * this.winProgress;
 
     this.context.beginPath();
     this.context.strokeStyle = palette.win;
@@ -237,6 +294,7 @@ export class CanvasBoard {
     if (this.pointers.size === 1) {
       this.pointerStart = point;
       this.lastPointer = point;
+      this.pointerType = event.pointerType;
       this.moved = false;
     } else {
       this.multiPointerGesture = true;
@@ -254,20 +312,21 @@ export class CanvasBoard {
     this.pointers.set(event.pointerId, point);
 
     if (this.pointers.size === 1 && this.lastPointer && !this.multiPointerGesture) {
+      const threshold = this.pointerType === 'touch' ? 10 : 5;
+      const distance = this.pointerStart
+        ? Math.hypot(point.x - this.pointerStart.x, point.y - this.pointerStart.y)
+        : 0;
+      if (!this.moved && distance <= threshold) {
+        this.lastPointer = point;
+        return;
+      }
+
+      this.moved = true;
       const dx = point.x - this.lastPointer.x;
       const dy = point.y - this.lastPointer.y;
       this.cameraX -= dx / this.cellSize;
       this.cameraY -= dy / this.cellSize;
       this.lastPointer = point;
-
-      if (this.pointerStart) {
-        const distance = Math.hypot(
-          point.x - this.pointerStart.x,
-          point.y - this.pointerStart.y
-        );
-        this.moved ||= distance > 5;
-      }
-
       this.render();
       return;
     }
@@ -282,11 +341,7 @@ export class CanvasBoard {
 
       if (this.pinchDistance > 0 && this.pinchMidpoint) {
         const anchor = this.screenToWorld(this.pinchMidpoint);
-        const nextSize = clamp(
-          this.cellSize * (distance / this.pinchDistance),
-          28,
-          92
-        );
+        const nextSize = clamp(this.cellSize * (distance / this.pinchDistance), 28, 92);
         this.cellSize = nextSize;
         this.cameraX = anchor.x - (midpoint.x - this.width / 2) / nextSize;
         this.cameraY = anchor.y - (midpoint.y - this.height / 2) / nextSize;
@@ -331,6 +386,13 @@ export class CanvasBoard {
     this.cameraY = anchor.y - (point.y - this.height / 2) / nextSize;
     this.render();
   };
+
+  private stopAnimation(): void {
+    if (this.animationFrame !== null) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+  }
 
   private resetPinchState(): void {
     this.pinchDistance = 0;

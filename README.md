@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.2.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.3.0-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current source version: **0.2.0** · Web + PWA · GitHub Pages
+Current source version: **0.3.0** · Web + PWA · GitHub Pages
 
 ## 🎯 Rules
 
@@ -42,22 +42,26 @@ Current source version: **0.2.0** · Web + PWA · GitHub Pages
 ## ✨ Current build
 
 - infinite Canvas board;
-- **vs computer** mode;
-- Easy, Medium, and Hard AI difficulties;
+- **vs computer** mode with Easy, Medium, Hard, and **Expert** AI;
+- stronger Medium and Hard tactical play;
+- Expert AI combines aggressive, defensive, and spatial candidate views with deeper bounded minimax search;
+- AI calculation runs in a Web Worker so deeper search does not block the board UI;
+- choice of X, O, or a random side against the computer;
 - local **two-player** play on one device;
-- five-or-more win detection;
-- latest-move and winning-line highlights;
-- post-game dialog offering a new game;
-- undo in AI games;
-- AI win/loss statistics;
-- unfinished-game persistence;
-- light and dark themes;
-- mouse/touch board dragging;
-- mouse-wheel and pinch zoom;
-- responsive desktop and mobile UI;
-- Russian UI when Russian is present in browser/system locales, English otherwise;
-- installable PWA with offline support after loading;
-- automatic GitHub Pages deployment.
+- five-or-more win detection, latest-move indication, animated winning line, and post-game emphasis;
+- post-game actions for new game, replay, and sharing;
+- undo in AI games and local AI win/loss statistics;
+- saved unfinished games with an explicit Continue / New game prompt;
+- replay controls for completed and shared games;
+- compact share links that reconstruct the move sequence without a backend;
+- system/light/dark theme selection plus a quick theme toggle;
+- automatic Russian/English UI with an optional manual language override;
+- optional result sound and vibration;
+- safer touch dragging with reduced accidental moves;
+- mobile controls remain available as compact icon buttons instead of disappearing;
+- installable PWA with dedicated 192 px, 512 px, maskable, and Apple touch icons;
+- offline readiness and in-app update notification;
+- automatic hardened GitHub Pages deployment.
 
 ## 🕹 Controls
 
@@ -66,11 +70,24 @@ Current source version: **0.2.0** · Web + PWA · GitHub Pages
 | Place a mark | Click a cell | Short tap |
 | Move the board | Drag | One-finger drag |
 | Zoom | Mouse wheel | Two-finger pinch |
-| Return to latest move | `Center` | Hidden in the current compact layout |
-| Undo against AI | `Undo` | `Undo` |
-| Start over | `New game` | `New game` |
+| Return to latest move | `Center` | `◎` |
+| Undo against AI | `Undo` | `↶` |
+| Settings | `Settings` | `⚙` |
+| Start over | `New game` | `＋` |
+| Replay | Previous / Next | `←` / `→` |
 
 Viewport movement never changes game coordinates: panning and zooming affect only what you see, not where the actual cells are stored.
+
+## 🤖 AI levels
+
+| Level | Behaviour |
+| --- | --- |
+| Easy | Tactical wins plus deliberate mistakes and imperfect blocking |
+| Medium | Reliable immediate tactics and stronger heuristic positioning |
+| Hard | Wider tactical candidate search, fork detection, and adversarial reply evaluation |
+| Expert | Multi-profile candidate consensus, pseudo-randomized tie ordering, double-threat detection, and deeper alpha-beta search |
+
+Expert search is deliberately bounded by time and candidate width. It is meant to be substantially harder without freezing mobile devices or making every turn excessively slow.
 
 ## 🌐 Web and PWA
 
@@ -78,9 +95,9 @@ The official hosted version is available at:
 
 **https://stanleyll0yd.github.io/infinite-five/**
 
-The site can be installed as a PWA through a supported browser. After the application assets are cached by the Service Worker, the game can start without an active connection.
+The site can be installed as a PWA through a supported browser. The manifest includes standard and maskable PNG icons, while the Service Worker precaches the application shell for offline startup. When a new version is waiting, the UI offers an update action instead of silently keeping an old application shell indefinitely.
 
-There is no account, backend, analytics, advertising, or tracking. The current game, settings, and local AI statistics are stored only in the browser's `localStorage`.
+There is no account, backend, analytics, advertising, or tracking. The current game, settings, and local AI statistics are stored only in the browser's `localStorage`. Shared games are encoded into the URL fragment and do not require a server.
 
 ## 🧱 Technology
 
@@ -88,29 +105,34 @@ There is no account, backend, analytics, advertising, or tracking. The current g
 | --- | --- |
 | Language | TypeScript 5.9 |
 | Rendering | HTML5 Canvas |
+| AI execution | Web Worker |
 | Build | Vite 7 |
 | PWA | vite-plugin-pwa / Workbox |
 | Tests | Vitest |
 | Persistence | localStorage |
+| Sharing | URL fragment |
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-Game logic is kept separate from Canvas rendering and browser UI so board rules, win detection, and AI can be tested independently and later reused if the project is packaged for Android.
+Game logic remains separate from Canvas rendering and browser UI so board rules, win detection, sharing, and AI can be tested independently and later reused if the project is packaged for Android.
 
 ## 🗂 Architecture
 
 ```text
 src/
 ├── game/
-│   ├── ai.ts              AI and difficulty levels
+│   ├── ai.ts              AI evaluation and difficulty levels
+│   ├── ai-client.ts       asynchronous AI worker client
+│   ├── ai.worker.ts       background AI execution
 │   ├── board.ts           infinite-board state
+│   ├── share.ts           compact game URL encoding
 │   ├── types.ts           game types
 │   └── win.ts             winning-line detection
 ├── ui/
-│   └── canvas-board.ts    Canvas rendering and input
+│   └── canvas-board.ts    Canvas rendering, gestures, and win animation
 ├── i18n.ts                Russian / English interface
-├── main.ts                application state and game flow
-└── styles.css             visual layer
+├── main.ts                application state, settings, replay, and game flow
+└── styles.css             visual layer and responsive layout
 ```
 
 The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
@@ -161,30 +183,29 @@ Repository security is designed around least privilege and supply-chain protecti
 - Dependabot monitors npm packages and GitHub Actions;
 - the default `GITHUB_TOKEN` is read-only and workflows request only the permissions they need;
 - third-party GitHub Actions are pinned to full commit SHAs;
-- CI, CodeQL, Semgrep, and Gitleaks are intended to be required checks for `main`;
-- force pushes and deletion of the protected default branch are prohibited by the repository ruleset.
+- Verify, CodeQL, Semgrep, and Gitleaks are required checks for `main`;
+- the active `Protect main` ruleset requires pull requests, linear history, resolved review threads, and squash merges while prohibiting force pushes and branch deletion.
 
 Please report vulnerabilities privately and never through a public issue. See [`SECURITY.md`](SECURITY.md).
 
 ## 🌍 Languages
 
-- **Русский** — when Russian appears in the browser language list or resolved system locale;
-- **English** — fallback for every other locale.
+- **Auto** — Russian when Russian appears in browser/system locales, English otherwise;
+- **Русский** — manual override;
+- **English** — manual override.
 
-The selected language is applied to rules, game modes, difficulty, buttons, status messages, statistics, and the post-game dialog.
+The selected language is applied to rules, modes, difficulty, settings, buttons, status messages, replay, sharing, and post-game dialogs.
 
 ## 🗺 Roadmap
 
-The immediate focus is quality of the existing game:
+The immediate focus after this gameplay milestone is:
 
-- mobile ergonomics and accessibility;
-- performance for long games;
-- further AI difficulty tuning;
-- additional PWA and offline validation;
-- preparation for a complete web release;
+- continued Expert AI tuning against real player positions;
+- accessibility and keyboard navigation;
+- performance profiling for very long games;
+- richer but still minimal local statistics;
+- optional room-link online multiplayer without changing the core rules;
 - later, optional Android packaging through Capacitor.
-
-Online multiplayer may be added later, but it must not change the core Infinite Five rules.
 
 ## 📄 License
 
