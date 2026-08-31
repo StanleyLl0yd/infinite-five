@@ -51,8 +51,8 @@ describe('Board', () => {
     expect(board.getMovesInBounds(-3, 3, -3, 3)).toEqual([
       { x: -2, y: -2, mark: 'X' },
       { x: 0, y: 0, mark: 'X' },
-      { x: 2, y: 2, mark: 'O' },
-      { x: 3, y: 1, mark: 'O' }
+      { x: 3, y: 1, mark: 'O' },
+      { x: 2, y: 2, mark: 'O' }
     ]);
   });
 
