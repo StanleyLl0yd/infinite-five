@@ -1,10 +1,16 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const tauriPlatform = process.env.TAURI_ENV_PLATFORM;
+const tauriDevHost = process.env.TAURI_DEV_HOST;
+const isTauriBuild = Boolean(tauriPlatform);
+
 export default defineConfig({
-  base: '/infinite-five/',
+  base: isTauriBuild ? './' : '/infinite-five/',
+  clearScreen: false,
   plugins: [
     VitePWA({
+      disable: isTauriBuild,
       registerType: 'prompt',
       includeAssets: [
         'icon.svg',
@@ -50,5 +56,28 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    port: 5173,
+    strictPort: true,
+    host: tauriDevHost || false,
+    hmr: tauriDevHost
+      ? {
+          protocol: 'ws',
+          host: tauriDevHost,
+          port: 1421
+        }
+      : undefined,
+    watch: {
+      ignored: ['**/src-tauri/**']
+    }
+  },
+  envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  build: isTauriBuild
+    ? {
+        target: tauriPlatform === 'windows' ? 'chrome105' : 'safari13',
+        minify: process.env.TAURI_ENV_DEBUG ? false : 'esbuild',
+        sourcemap: Boolean(process.env.TAURI_ENV_DEBUG)
+      }
+    : undefined
 });
