@@ -8,6 +8,8 @@
 - Keep game rules and AI logic independent from rendering and browser UI where practical.
 - Keep AI candidate locality strictly as a search optimization; never turn it into a restriction on legal human moves.
 - Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.
+- Turn repeatable Hard or Expert mistakes into deterministic AI regression cases before or alongside the fix, and keep resolved cases in the suite unless the game rules change.
+- Treat AI self-play as a regression and tuning signal, not as proof that one difficulty is objectively stronger from a small sample.
 - Prefer the smallest correct implementation and avoid speculative abstractions.
 - Do not introduce a dependency without a concrete need.
 - Keep `package-lock.json` committed and use `npm ci` in automated verification and deployment.

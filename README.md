@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.3.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.3.1-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current source version: **0.3.0** · Web + PWA · GitHub Pages
+Current source version: **0.3.1** · Web + PWA · GitHub Pages
 
 ## 🎯 Rules
 
@@ -43,9 +43,12 @@ Current source version: **0.3.0** · Web + PWA · GitHub Pages
 
 - infinite Canvas board;
 - **vs computer** mode with Easy, Medium, Hard, and **Expert** AI;
-- stronger Medium and Hard tactical play;
-- Expert AI combines aggressive, defensive, and spatial candidate views with deeper bounded minimax search;
+- stronger Medium and Hard tactical play with explicit fork defense;
+- Expert AI combines five attack/defense/spatial candidate views and rewards moves that recur across several views;
+- Expert checks immediate wins, mandatory blocks and offensive/defensive double threats before deeper search;
+- iterative deepening evaluates all root alternatives at each completed depth instead of letting an expired search favor early candidates;
 - AI calculation runs in a Web Worker so deeper search does not block the board UI;
+- deterministic AI regression corpus, search diagnostics and short Expert-vs-Hard self-play smoke tests;
 - choice of X, O, or a random side against the computer;
 - local **two-player** play on one device;
 - five-or-more win detection, latest-move indication, animated winning line, and post-game emphasis;
@@ -84,10 +87,12 @@ Viewport movement never changes game coordinates: panning and zooming affect onl
 | --- | --- |
 | Easy | Tactical wins plus deliberate mistakes and imperfect blocking |
 | Medium | Reliable immediate tactics and stronger heuristic positioning |
-| Hard | Wider tactical candidate search, fork detection, and adversarial reply evaluation |
-| Expert | Multi-profile candidate consensus, pseudo-randomized tie ordering, double-threat detection, and deeper alpha-beta search |
+| Hard | Wider tactical candidate search, fork defense, fork creation and adversarial reply evaluation |
+| Expert | Five-profile candidate consensus, seeded tie ordering, two-sided double-threat detection and iterative alpha-beta deepening |
 
-Expert search is deliberately bounded by time and candidate width. It is meant to be substantially harder without freezing mobile devices or making every turn excessively slow.
+Expert search is deliberately bounded by time, depth and candidate width. The production Web Worker gets a larger search budget than the synchronous fallback. A deeper Expert iteration is used only after every root candidate at that depth has been evaluated, which makes time-limited decisions more balanced and reproducible.
+
+Real positions that expose repeatable Hard or Expert mistakes should become permanent regression cases. See [`docs/AI_LAB.md`](docs/AI_LAB.md) for the tuning and regression workflow.
 
 ## 🌐 Web and PWA
 
@@ -121,9 +126,11 @@ Game logic remains separate from Canvas rendering and browser UI so board rules,
 ```text
 src/
 ├── game/
-│   ├── ai.ts              AI evaluation and difficulty levels
+│   ├── ai.ts              AI evaluation, tactical checks and bounded search
 │   ├── ai-client.ts       asynchronous AI worker client
 │   ├── ai.worker.ts       background AI execution
+│   ├── ai.test.ts         tactical AI regression corpus
+│   ├── ai.lab.test.ts     deterministic self-play and diagnostics
 │   ├── board.ts           infinite-board state
 │   ├── share.ts           compact game URL encoding
 │   ├── types.ts           game types
@@ -135,7 +142,7 @@ src/
 └── styles.css             visual layer and responsive layout
 ```
 
-The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md).
+The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md). AI tuning and regression conventions are documented in [`docs/AI_LAB.md`](docs/AI_LAB.md).
 
 ## 🛠 Development
 
@@ -159,6 +166,12 @@ npm test
 npm run build
 ```
 
+Run the dedicated AI Lab scenarios when tuning Hard or Expert:
+
+```bash
+npm run test:ai-lab
+```
+
 The committed `package-lock.json` keeps dependency resolution reproducible. The production build performs TypeScript validation before Vite creates the deployable bundle.
 
 ## ✅ Quality checks
@@ -167,7 +180,7 @@ Pushes and pull requests are verified by GitHub Actions with:
 
 - reproducible dependency installation through `npm ci`;
 - blocking npm audit for high and critical findings;
-- Vitest unit tests;
+- Vitest unit and regression tests, including the AI Lab smoke suite;
 - TypeScript validation and production build;
 - CodeQL analysis with `security-extended` queries;
 - Semgrep security and secret rules;
@@ -198,12 +211,12 @@ The selected language is applied to rules, modes, difficulty, settings, buttons,
 
 ## 🗺 Roadmap
 
-The immediate focus after this gameplay milestone is:
+The immediate focus after the v0.3.1 AI stabilization release is:
 
-- continued Expert AI tuning against real player positions;
+- keep expanding the AI regression corpus with real player positions that expose repeatable mistakes;
 - accessibility and keyboard navigation;
 - performance profiling for very long games;
-- richer but still minimal local statistics;
+- local game history and richer but still minimal statistics;
 - optional room-link online multiplayer without changing the core rules;
 - later, optional Android packaging through Capacitor.
 

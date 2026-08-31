@@ -17,7 +17,8 @@ self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
     board.restore(moves);
     const position = chooseAiMove(board, mark, difficulty, {
       seed,
-      timeBudgetMs: difficulty === 'expert' ? 1_800 : difficulty === 'hard' ? 550 : 220
+      timeBudgetMs: difficulty === 'expert' ? 2_600 : difficulty === 'hard' ? 700 : 240,
+      maxDepth: difficulty === 'expert' ? 5 : undefined
     });
     self.postMessage({ id, position });
   } catch (error) {

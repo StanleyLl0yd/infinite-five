@@ -4,14 +4,42 @@ import type { Mark, Move, Position } from './types';
 
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
+export interface AiSearchDiagnostics {
+  nodes: number;
+  completedDepth: number;
+  rootCandidates: number;
+  elapsedMs: number;
+  timedOut: boolean;
+}
+
 export interface AiSearchOptions {
   seed?: number;
   timeBudgetMs?: number;
+  maxDepth?: number;
+  diagnostics?: AiSearchDiagnostics;
 }
 
 interface RankedMove {
   position: Position;
   score: number;
+}
+
+interface SearchResult {
+  score: number;
+  complete: boolean;
+}
+
+interface SearchContext {
+  deadline: number;
+  seed: number;
+  nodes: number;
+  timedOut: boolean;
+}
+
+interface ExpertChoice {
+  position: Position;
+  completedDepth: number;
+  rootCandidates: number;
 }
 
 const winScore = 1_000_000_000;
@@ -100,7 +128,13 @@ const contiguousScore = (length: number, openEnds: number): number => {
   return openEnds === 2 ? 60 : 10;
 };
 
-const windowPatternScore = (board: Board, position: Position, mark: Mark, dx: number, dy: number): number => {
+const windowPatternScore = (
+  board: Board,
+  position: Position,
+  mark: Mark,
+  dx: number,
+  dy: number
+): number => {
   const opponent = opponentOf(mark);
   let best = 0;
 
@@ -210,7 +244,7 @@ const rankedCandidates = (
 
 const immediateThreatCount = (board: Board, mark: Mark, limit = 3): number => {
   let count = 0;
-  const candidates = rankedCandidates(board, mark).slice(0, 24).map(({ position }) => position);
+  const candidates = rankedCandidates(board, mark).slice(0, 28).map(({ position }) => position);
   for (const candidate of candidates) {
     if (isWinningMove(board, candidate, mark)) {
       count += 1;
@@ -222,13 +256,42 @@ const immediateThreatCount = (board: Board, mark: Mark, limit = 3): number => {
   return count;
 };
 
+const isDoubleThreatMove = (board: Board, position: Position, mark: Mark): boolean => {
+  if (!board.place(position.x, position.y, mark)) {
+    return false;
+  }
+  const move: Move = { ...position, mark };
+  const createsWin = getWinningLine(board, move) !== null;
+  const threats = createsWin ? 2 : immediateThreatCount(board, mark, 2);
+  board.undo();
+  return threats >= 2;
+};
+
+const findDoubleThreatMoves = (
+  board: Board,
+  mark: Mark,
+  candidates: readonly Position[],
+  deadline: number,
+  limit = 3
+): Position[] => {
+  const result: Position[] = [];
+  for (const candidate of candidates) {
+    if (Date.now() >= deadline) break;
+    if (isDoubleThreatMove(board, candidate, mark)) {
+      result.push(candidate);
+      if (result.length >= limit) break;
+    }
+  }
+  return result;
+};
+
 const staticEvaluation = (board: Board, mark: Mark): number => {
   const opponent = opponentOf(mark);
-  const own = rankedCandidates(board, mark).slice(0, 3);
-  const enemy = rankedCandidates(board, opponent).slice(0, 3);
+  const own = rankedCandidates(board, mark).slice(0, 4);
+  const enemy = rankedCandidates(board, opponent).slice(0, 4);
   const ownScore = own.reduce((sum, candidate, index) => sum + candidate.score / (index + 1), 0);
   const enemyScore = enemy.reduce((sum, candidate, index) => sum + candidate.score / (index + 1), 0);
-  return ownScore - enemyScore * 1.07;
+  return ownScore - enemyScore * 1.09;
 };
 
 const chooseEasy = (board: Board, mark: Mark): Position => {
@@ -275,7 +338,7 @@ const evaluateHardCandidate = (
   board: Board,
   candidate: RankedMove,
   mark: Mark,
-  deadline: number
+  context: SearchContext
 ): number => {
   const opponent = opponentOf(mark);
   board.place(candidate.position.x, candidate.position.y, mark);
@@ -284,7 +347,7 @@ const evaluateHardCandidate = (
   const opponentWins = findWinningMoves(
     board,
     opponent,
-    rankedCandidates(board, opponent).slice(0, 20).map(({ position }) => position)
+    rankedCandidates(board, opponent).slice(0, 22).map(({ position }) => position)
   );
 
   if (opponentWins.length > 0) {
@@ -293,13 +356,17 @@ const evaluateHardCandidate = (
   }
   if (ownThreats >= 2) {
     board.undo();
-    return winScore * 0.82 + candidate.score;
+    return winScore * 0.84 + candidate.score;
   }
 
-  const replies = rankedCandidates(board, opponent).slice(0, 12);
+  const replies = rankedCandidates(board, opponent).slice(0, 14);
   let worstReply = Number.POSITIVE_INFINITY;
   for (const reply of replies) {
-    if (Date.now() >= deadline) break;
+    if (Date.now() >= context.deadline) {
+      context.timedOut = true;
+      break;
+    }
+    context.nodes += 1;
     board.place(reply.position.x, reply.position.y, opponent);
     const replyMove: Move = { ...reply.position, mark: opponent };
     const score = getWinningLine(board, replyMove)
@@ -311,10 +378,10 @@ const evaluateHardCandidate = (
 
   board.undo();
   const fallback = staticEvaluation(board, mark);
-  return (Number.isFinite(worstReply) ? worstReply : fallback) + candidate.score * 0.12 + ownThreats * 7_000_000;
+  return (Number.isFinite(worstReply) ? worstReply : fallback) + candidate.score * 0.12 + ownThreats * 7_500_000;
 };
 
-const chooseHard = (board: Board, mark: Mark, deadline: number): Position => {
+const chooseHard = (board: Board, mark: Mark, context: SearchContext): Position => {
   const ranked = rankedCandidates(board, mark);
   const candidates = ranked.map(({ position }) => position);
   const wins = findWinningMoves(board, mark, candidates);
@@ -326,11 +393,25 @@ const chooseHard = (board: Board, mark: Mark, deadline: number): Position => {
     return blocks.sort((a, b) => rankScore(board, b, mark) - rankScore(board, a, mark))[0];
   }
 
+  const opponentForks = findDoubleThreatMoves(
+    board,
+    opponent,
+    rankedCandidates(board, opponent).slice(0, 14).map(({ position }) => position),
+    context.deadline,
+    2
+  );
+  if (opponentForks.length === 1) {
+    return opponentForks[0];
+  }
+
   let best = ranked[0];
   let bestScore = Number.NEGATIVE_INFINITY;
-  for (const candidate of ranked.slice(0, 24)) {
-    if (Date.now() >= deadline && best) break;
-    const score = evaluateHardCandidate(board, candidate, mark, deadline);
+  for (const candidate of ranked.slice(0, 26)) {
+    if (Date.now() >= context.deadline && best) {
+      context.timedOut = true;
+      break;
+    }
+    const score = evaluateHardCandidate(board, candidate, mark, context);
     if (score > bestScore) {
       best = candidate;
       bestScore = score;
@@ -341,21 +422,24 @@ const chooseHard = (board: Board, mark: Mark, deadline: number): Position => {
 
 const expertConsensus = (board: Board, mark: Mark, seed: number): RankedMove[] => {
   const profiles = [
-    rankedCandidates(board, mark, 2, 1.2, 0.86),
-    rankedCandidates(board, mark, 2, 0.9, 1.2),
-    rankedCandidates(board, mark, 3, 1.03, 1.03)
+    rankedCandidates(board, mark, 2, 1.24, 0.82),
+    rankedCandidates(board, mark, 2, 0.86, 1.28),
+    rankedCandidates(board, mark, 3, 1.04, 1.04),
+    rankedCandidates(board, mark, 3, 1.16, 0.94),
+    rankedCandidates(board, mark, 3, 0.94, 1.16)
   ];
   const combined = new Map<string, RankedMove & { votes: number }>();
 
   profiles.forEach((profile, profileIndex) => {
-    profile.slice(0, profileIndex === 2 ? 18 : 14).forEach((candidate, index) => {
+    const limit = profileIndex < 2 ? 15 : 20;
+    profile.slice(0, limit).forEach((candidate, index) => {
       const key = keyOf(candidate.position.x, candidate.position.y);
       const existing = combined.get(key) ?? {
         position: candidate.position,
         score: 0,
         votes: 0
       };
-      existing.score += candidate.score / (1 + index * 0.1);
+      existing.score += candidate.score / (1 + index * 0.09);
       existing.votes += 1;
       combined.set(key, existing);
     });
@@ -364,7 +448,7 @@ const expertConsensus = (board: Board, mark: Mark, seed: number): RankedMove[] =
   return [...combined.values()]
     .map(({ position, score, votes }) => ({
       position,
-      score: score + votes * 1_500_000 + positionNoise(position, seed) * 500
+      score: score + votes * votes * 720_000 + positionNoise(position, seed) * 500
     }))
     .sort((a, b) => b.score - a.score);
 };
@@ -402,100 +486,232 @@ const search = (
   depth: number,
   alpha: number,
   beta: number,
-  deadline: number,
-  seed: number
-): number => {
+  context: SearchContext
+): SearchResult => {
+  context.nodes += 1;
   const moves = board.getMoves();
   const lastMove = moves[moves.length - 1];
   if (lastMove && getWinningLine(board, lastMove)) {
-    return lastMove.mark === perspective ? winScore + depth : -winScore - depth;
+    return {
+      score: lastMove.mark === perspective ? winScore + depth : -winScore - depth,
+      complete: true
+    };
   }
-  if (depth === 0 || Date.now() >= deadline) {
-    return staticEvaluation(board, perspective);
+  if (depth === 0) {
+    return { score: staticEvaluation(board, perspective), complete: true };
+  }
+  if (Date.now() >= context.deadline) {
+    context.timedOut = true;
+    return { score: staticEvaluation(board, perspective), complete: false };
   }
 
-  const width = depth >= 3 ? 10 : depth === 2 ? 8 : 6;
-  const candidates = orderedSearchMoves(board, turn, width, seed ^ depth);
+  const width = depth >= 4 ? 11 : depth === 3 ? 10 : depth === 2 ? 8 : 6;
+  const candidates = orderedSearchMoves(board, turn, width, context.seed ^ depth);
   if (candidates.length === 0) {
-    return staticEvaluation(board, perspective);
+    return { score: staticEvaluation(board, perspective), complete: true };
   }
 
   const maximizing = turn === perspective;
   let best = maximizing ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
   for (const candidate of candidates) {
-    if (Date.now() >= deadline) break;
+    if (Date.now() >= context.deadline) {
+      context.timedOut = true;
+      return {
+        score: Number.isFinite(best) ? best : staticEvaluation(board, perspective),
+        complete: false
+      };
+    }
+
     board.place(candidate.position.x, candidate.position.y, turn);
-    const value = search(
+    const child = search(
       board,
       perspective,
       opponentOf(turn),
       depth - 1,
       alpha,
       beta,
-      deadline,
-      seed ^ hashNumber(candidate.position.x * 101 + candidate.position.y * 313)
+      context
     );
     board.undo();
 
+    if (!child.complete) {
+      return {
+        score: Number.isFinite(best) ? best : child.score,
+        complete: false
+      };
+    }
+
     if (maximizing) {
-      best = Math.max(best, value);
+      best = Math.max(best, child.score);
       alpha = Math.max(alpha, best);
     } else {
-      best = Math.min(best, value);
+      best = Math.min(best, child.score);
       beta = Math.min(beta, best);
     }
     if (beta <= alpha) break;
   }
 
-  return Number.isFinite(best) ? best : staticEvaluation(board, perspective);
+  return {
+    score: Number.isFinite(best) ? best : staticEvaluation(board, perspective),
+    complete: true
+  };
 };
 
-const chooseExpert = (board: Board, mark: Mark, deadline: number, seed: number): Position => {
-  const consensus = expertConsensus(board, mark, seed);
+const scoreExpertRootMove = (
+  board: Board,
+  candidate: RankedMove,
+  mark: Mark,
+  depth: number,
+  context: SearchContext
+): SearchResult => {
+  const opponent = opponentOf(mark);
+  board.place(candidate.position.x, candidate.position.y, mark);
+  const move: Move = { ...candidate.position, mark };
+
+  if (getWinningLine(board, move)) {
+    board.undo();
+    return { score: winScore, complete: true };
+  }
+
+  const ownThreats = immediateThreatCount(board, mark, 3);
+  const opponentThreats = immediateThreatCount(board, opponent, 2);
+  let result: SearchResult;
+  if (opponentThreats > 0) {
+    result = { score: -winScore * 0.95, complete: true };
+  } else if (ownThreats >= 2) {
+    result = {
+      score: winScore * 0.94 + ownThreats * 1_100_000,
+      complete: true
+    };
+  } else {
+    result = search(
+      board,
+      mark,
+      opponent,
+      Math.max(0, depth - 1),
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+      context
+    );
+  }
+  board.undo();
+
+  return {
+    score:
+      result.score +
+      candidate.score * 0.03 +
+      positionNoise(candidate.position, context.seed ^ depth) * 250,
+    complete: result.complete
+  };
+};
+
+const chooseExpert = (
+  board: Board,
+  mark: Mark,
+  context: SearchContext,
+  maxDepth: number
+): ExpertChoice => {
+  const consensus = expertConsensus(board, mark, context.seed);
   const candidates = consensus.map(({ position }) => position);
   const wins = findWinningMoves(board, mark, candidates);
-  if (wins.length > 0) return wins[0];
+  if (wins.length > 0) {
+    return { position: wins[0], completedDepth: 0, rootCandidates: consensus.length };
+  }
 
   const opponent = opponentOf(mark);
   const blocks = findWinningMoves(board, opponent, candidates);
   if (blocks.length > 0) {
-    return blocks.sort((a, b) => rankScore(board, b, mark) - rankScore(board, a, mark))[0];
+    const position = blocks.sort((a, b) => rankScore(board, b, mark) - rankScore(board, a, mark))[0];
+    return { position, completedDepth: 0, rootCandidates: consensus.length };
   }
 
-  let best = consensus[0];
-  let bestScore = Number.NEGATIVE_INFINITY;
-  for (const candidate of consensus.slice(0, 18)) {
-    if (Date.now() >= deadline && best) break;
-    board.place(candidate.position.x, candidate.position.y, mark);
+  const ownForks = findDoubleThreatMoves(
+    board,
+    mark,
+    consensus.slice(0, 16).map(({ position }) => position),
+    context.deadline,
+    2
+  );
+  if (ownForks.length > 0) {
+    return { position: ownForks[0], completedDepth: 0, rootCandidates: consensus.length };
+  }
 
-    const opponentThreats = immediateThreatCount(board, opponent);
-    const ownThreats = immediateThreatCount(board, mark);
-    let score: number;
-    if (opponentThreats > 0) {
-      score = -winScore * 0.94;
-    } else if (ownThreats >= 2) {
-      score = winScore * 0.93 + ownThreats * 1_000_000;
-    } else {
-      score = search(
-        board,
-        mark,
-        opponent,
-        4,
-        Number.NEGATIVE_INFINITY,
-        Number.POSITIVE_INFINITY,
-        deadline,
-        seed
-      );
+  const opponentForks = findDoubleThreatMoves(
+    board,
+    opponent,
+    rankedCandidates(board, opponent).slice(0, 18).map(({ position }) => position),
+    context.deadline,
+    3
+  );
+  if (opponentForks.length === 1) {
+    return { position: opponentForks[0], completedDepth: 0, rootCandidates: consensus.length };
+  }
+
+  let ordered = consensus.slice(0, 16);
+  let best = ordered[0];
+  let completedDepth = 0;
+
+  for (let depth = 1; depth <= maxDepth; depth += 1) {
+    if (Date.now() >= context.deadline) {
+      context.timedOut = true;
+      break;
     }
-    board.undo();
 
-    score += candidate.score * 0.035 + positionNoise(candidate.position, seed) * 250;
-    if (score > bestScore) {
-      bestScore = score;
-      best = candidate;
+    const scored: RankedMove[] = [];
+    let iterationComplete = true;
+    for (const candidate of ordered) {
+      if (Date.now() >= context.deadline) {
+        context.timedOut = true;
+        iterationComplete = false;
+        break;
+      }
+      const result = scoreExpertRootMove(board, candidate, mark, depth, context);
+      if (!result.complete) {
+        iterationComplete = false;
+        break;
+      }
+      scored.push({ position: candidate.position, score: result.score });
+    }
+
+    if (!iterationComplete || scored.length !== ordered.length) {
+      break;
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    best = scored[0];
+    completedDepth = depth;
+    const scoreByKey = new Map(scored.map((entry) => [keyOf(entry.position.x, entry.position.y), entry.score]));
+    ordered = ordered.sort(
+      (a, b) =>
+        (scoreByKey.get(keyOf(b.position.x, b.position.y)) ?? b.score) -
+        (scoreByKey.get(keyOf(a.position.x, a.position.y)) ?? a.score)
+    );
+
+    if (best.score >= winScore * 0.93) {
+      break;
     }
   }
-  return best.position;
+
+  return {
+    position: best.position,
+    completedDepth,
+    rootCandidates: ordered.length
+  };
+};
+
+const fillDiagnostics = (
+  diagnostics: AiSearchDiagnostics | undefined,
+  context: SearchContext,
+  startedAt: number,
+  completedDepth: number,
+  rootCandidates: number
+): void => {
+  if (!diagnostics) return;
+  diagnostics.nodes = context.nodes;
+  diagnostics.completedDepth = completedDepth;
+  diagnostics.rootCandidates = rootCandidates;
+  diagnostics.elapsedMs = Date.now() - startedAt;
+  diagnostics.timedOut = context.timedOut;
 };
 
 export const chooseAiMove = (
@@ -504,16 +720,44 @@ export const chooseAiMove = (
   difficulty: AiDifficulty,
   options: AiSearchOptions = {}
 ): Position => {
+  const startedAt = Date.now();
   if (board.getMoves().length === 0) {
+    if (options.diagnostics) {
+      options.diagnostics.nodes = 0;
+      options.diagnostics.completedDepth = 0;
+      options.diagnostics.rootCandidates = 1;
+      options.diagnostics.elapsedMs = 0;
+      options.diagnostics.timedOut = false;
+    }
     return { x: 0, y: 0 };
   }
 
   const seed = options.seed ?? seedFromBoard(board);
-  const budget = options.timeBudgetMs ?? (difficulty === 'expert' ? 900 : difficulty === 'hard' ? 320 : 120);
-  const deadline = Date.now() + Math.max(50, budget);
+  const budget = options.timeBudgetMs ?? (difficulty === 'expert' ? 1_200 : difficulty === 'hard' ? 420 : 140);
+  const context: SearchContext = {
+    deadline: Date.now() + Math.max(20, budget),
+    seed,
+    nodes: 0,
+    timedOut: false
+  };
 
-  if (difficulty === 'easy') return chooseEasy(board, mark);
-  if (difficulty === 'medium') return chooseMedium(board, mark, seed);
-  if (difficulty === 'hard') return chooseHard(board, mark, deadline);
-  return chooseExpert(board, mark, deadline, seed);
+  let position: Position;
+  let completedDepth = 0;
+  let rootCandidates = 0;
+
+  if (difficulty === 'easy') {
+    position = chooseEasy(board, mark);
+  } else if (difficulty === 'medium') {
+    position = chooseMedium(board, mark, seed);
+  } else if (difficulty === 'hard') {
+    position = chooseHard(board, mark, context);
+  } else {
+    const choice = chooseExpert(board, mark, context, Math.max(1, options.maxDepth ?? 5));
+    position = choice.position;
+    completedDepth = choice.completedDepth;
+    rootCandidates = choice.rootCandidates;
+  }
+
+  fillDiagnostics(options.diagnostics, context, startedAt, completedDepth, rootCandidates);
+  return position;
 };

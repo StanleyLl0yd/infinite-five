@@ -34,7 +34,8 @@ const fallback = (moves: readonly Move[], mark: Mark, difficulty: AiDifficulty, 
   board.restore(moves);
   return chooseAiMove(board, mark, difficulty, {
     seed,
-    timeBudgetMs: difficulty === 'expert' ? 1_200 : difficulty === 'hard' ? 450 : 180
+    timeBudgetMs: difficulty === 'expert' ? 1_700 : difficulty === 'hard' ? 520 : 180,
+    maxDepth: difficulty === 'expert' ? 4 : undefined
   });
 };
 
