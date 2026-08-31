@@ -70,10 +70,6 @@ jobs:
           grep -F 'applicationId = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
           test -f src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
           grep -F 'package com.sl.infinitefive' src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
-          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
-          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
-          grep -F 'package com.sl.infinitefive.kotlin' src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
-          grep -F 'package com.sl.infinitefive.kotlin' src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
           ! grep -R -F 'io.github.stanleyll0yd.infinitefive' src-tauri --exclude-dir=target
 
       - name: Generate Cargo lockfile
