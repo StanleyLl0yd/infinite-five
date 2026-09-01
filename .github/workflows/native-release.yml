@@ -1,10 +1,14 @@
 name: Native Release
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and attach native artifacts to
+        description: Existing release tag to rebuild and attach native artifacts to
         required: true
         type: string
 
@@ -13,7 +17,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: native-release-${{ inputs.tag }}
+  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -21,11 +25,14 @@ jobs:
     name: Signed Android APK and AAB
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
     steps:
-      - name: Checkout release tag
+      - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -35,13 +42,18 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Verify release version
+      - name: Resolve release version
+        id: release
         env:
-          TAG: ${{ inputs.tag }}
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
@@ -176,7 +188,7 @@ jobs:
       - name: Upload signed Android artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: infinite-five-signed-android-${{ inputs.tag }}
+          name: infinite-five-signed-android
           path: release/*
           if-no-files-found: error
           retention-days: 30
@@ -186,10 +198,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - name: Checkout release tag
+      - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -199,13 +211,15 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Verify release version
+      - name: Resolve release version
         env:
-          TAG: ${{ inputs.tag }}
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
           test "$TAG" = "v$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci
@@ -238,7 +252,7 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: infinite-five-macos-${{ inputs.tag }}
+          name: infinite-five-macos
           path: release/*
           if-no-files-found: error
           retention-days: 30
@@ -254,17 +268,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p release
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "infinite-five-signed-android-${{ inputs.tag }}" --dir release
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "infinite-five-macos-${{ inputs.tag }}" --dir release
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name infinite-five-signed-android --dir release
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name infinite-five-macos --dir release
 
       - name: Create checksums
         working-directory: release
         run: sha256sum Infinite-Five-* > SHA256SUMS.txt
 
-      - name: Upload release assets
+      - name: Wait for GitHub Release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ needs.android.outputs.tag }}
         run: |
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
-          gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber
+          for attempt in $(seq 1 30); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Release $TAG was not created within the wait window." >&2
+          exit 1

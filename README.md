@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.5.0** · Web + PWA · GitHub Pages. v0.5.0 also establishes the Tauri 2 cross-platform foundation and reproducible native package validation; it does not claim a signed Android, macOS, or iOS store release.
+Current published release: **v0.5.1** · Web + PWA · GitHub Pages + native release artifacts. v0.5.0 established the Tauri 2 cross-platform foundation; v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, and an ad-hoc signed universal macOS DMG. RuStore, notarized macOS, and iOS store publication remain separate distribution steps.
 
 ## 🎯 Rules
 
@@ -65,7 +65,9 @@ Current published release: **v0.5.0** · Web + PWA · GitHub Pages. v0.5.0 also 
 - mobile controls remain available as compact icon buttons instead of disappearing;
 - installable PWA with offline readiness and in-app update notification;
 - automatic hardened GitHub Pages deployment;
-- shared Tauri 2 shell for Android and macOS package validation without forking the game core.
+- shared Tauri 2 shell for Android and macOS package validation without forking the game core;
+- signed Android APK/AAB release packaging from GitHub Secrets with certificate and package-identity verification;
+- universal macOS DMG release packaging with ad-hoc signing until Developer ID signing/notarization is available.
 
 ## 🕹 Controls
 
@@ -124,7 +126,7 @@ The same TypeScript/Vite application is packaged natively with **Tauri 2**. Nati
 
 The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace/applicationId, Kotlin package paths, tests, workflows, and documentation are kept aligned with that identity.
 
-The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.
+The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.
 
 See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, build rules, identifiers, and native validation gates.
 
@@ -231,7 +233,7 @@ Pushes and pull requests are verified by GitHub Actions with:
 - Semgrep security and secret rules;
 - Gitleaks full-history secret scanning.
 
-A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility; signed public distribution remains a separate release-channel step.
+A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility. Release packaging additionally verifies Android signatures and `com.sl.infinitefive`, produces signed APK/AAB files plus an ad-hoc signed universal macOS DMG, generates SHA-256 checksums, and attaches the files to the matching GitHub Release.
 
 ## 🔐 Security
 
@@ -258,9 +260,11 @@ The selected language is applied to rules, modes, difficulty, settings, buttons,
 
 Completed in **v0.5.0**: shared Tauri 2 native shell, stable `com.sl.infinitefive` application identity, generated Android project, native identity regression coverage, and Android/macOS package-build validation.
 
+Completed in **v0.5.1**: secret-backed Android release signing, verified APK/AAB packaging, universal macOS DMG packaging, release checksums, and automatic native asset attachment to GitHub Releases.
+
 Next priorities:
 
-- harden Android packaging, release signing, native integration, and RuStore publication;
+- complete Android native integration and RuStore publication;
 - prepare macOS direct distribution with Developer ID signing/notarization when available;
 - add iOS packaging when the required Apple distribution access is available;
 - continue adding real-player AI regression positions and measured performance follow-up;

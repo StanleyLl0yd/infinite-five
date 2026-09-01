@@ -2,7 +2,7 @@
 
 Infinite Five keeps one TypeScript/Vite game implementation and uses Tauri 2 as the native application shell. The browser/PWA build remains a first-class target; native packaging must reuse the same game rules, AI, rendering, replay, history and localization code rather than creating platform-specific game engines.
 
-Release v0.5.0 establishes the Tauri cross-platform foundation and native build validation. It does not by itself mean that Android, macOS or iOS has been published through a store or signed public distribution channel.
+Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 adds the native release pipeline: Android APK/AAB files are signed from GitHub Secrets and verified before publication, while macOS receives an ad-hoc signed universal DMG. RuStore, Developer ID notarization and iOS store publication remain separate distribution steps.
 
 ## Target model
 
@@ -80,19 +80,19 @@ The Android release secret contract is:
 
 If the initial keystore contains only one suitable key, the app and upload aliases can temporarily point to the same key, but a separate upload key is preferred for the RuStore AAB lifecycle. RuStore may additionally require the encrypted application-signing key export and upload certificate during first-time AAB signing setup; those store enrollment files are separate from GitHub release artifacts.
 
-`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in repository secrets or the release environment, never in Git.
+`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in GitHub Secrets or the release environment, never in Git. The workflow verifies certificate fingerprints before signing and validates the resulting APK/AAB signatures before publishing.
 
 ## macOS
 
 macOS is a supported native target in the architecture even if it is not the first public native release target. Direct distribution can use a Tauri-generated application bundle/DMG without relying on the Mac App Store. The canonical bundle identity is `com.sl.infinitefive`.
 
-Until Apple Developer ID access is available, the native release pipeline produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. This is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
+Release v0.5.1 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
 When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
 
 ## Native release artifacts
 
-`.github/workflows/native-release.yml` is the controlled packaging path for native release files. It is manually dispatched against an existing GitHub release tag and refuses to build when the tag does not match the version in `package.json`.
+`.github/workflows/native-release.yml` is the controlled packaging path for native release files. A version-changing push to `main` builds from that exact release commit while the Release workflow creates the matching tag; manual dispatch remains available for deterministic rebuilds from an existing tag. The resolved tag must match the version in `package.json`.
 
 For each successful run it builds and verifies:
 
@@ -103,7 +103,7 @@ Infinite-Five-v<version>-macOS-universal.dmg
 SHA256SUMS.txt
 ```
 
-The workflow retains the files as GitHub Actions artifacts and attaches them to the matching GitHub Release. Release assets are generated from a tag, not from an arbitrary moving branch.
+The workflow retains the files as GitHub Actions artifacts and attaches them to the matching GitHub Release. Automatic release builds use the exact `main` release commit; manual rebuilds use the immutable release tag.
 
 ## iOS
 
