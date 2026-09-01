@@ -28,7 +28,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Apply cleanups
-        run: python .github/audit_refactor.py
+        run: python .github/audit_refactor_v2.py
 
       - name: Install dependencies
         run: npm ci
