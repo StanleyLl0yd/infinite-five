@@ -14,7 +14,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,10 +77,15 @@ jobs:
         shell: bash
         run: |
           set +e
+          npm install --no-save --package-lock=false --ignore-scripts typescript@5.9.3 >/tmp/audit-typescript-install.log 2>&1
+          echo "typescript_compat_install_exit=$?" >> audit-report/tool-exits.txt
           npx --yes knip@5.64.0 --reporter compact > audit-report/knip.txt 2>&1
           echo "knip_exit=$?" >> audit-report/tool-exits.txt
           cat audit-report/knip.txt
           exit 0
+
+      - name: Restore project dependencies
+        run: npm ci
 
       - name: Detect circular dependencies
         shell: bash
@@ -104,10 +109,30 @@ jobs:
         shell: bash
         run: |
           set +e
-          grep -RInE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=target --exclude=package-lock.json '(TODO|FIXME|XXX|HACK|deprecated|legacy)' . > audit-report/markers.txt
+          grep -RInE \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=dist \
+            --exclude-dir=target \
+            --exclude-dir=audit-report \
+            --exclude=package-lock.json \
+            --exclude=full-audit-temp.yml \
+            '(TODO|FIXME|XXX|HACK|deprecated|legacy)' \
+            src src-tauri scripts .github docs *.md > audit-report/markers.txt
           echo "markers_exit=$?" >> audit-report/tool-exits.txt
           cat audit-report/markers.txt || true
           exit 0
+
+      - name: Install Linux Tauri build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libgtk-3-dev \
+            pkg-config \
+            patchelf
 
       - name: Rust metadata and lint
         shell: bash
