@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   android:
-    name: Signed Android APK and AAB
+    name: Signed Android AAB and supplemental APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
@@ -60,12 +60,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Android Rust targets
+      - name: Configure Android NDK and Rust targets
         run: |
-          NDK_PATH="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          NDK_VERSION="29.0.14206865"
+          NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [[ ! -d "$NDK_PATH" ]]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
+          fi
           test -d "$NDK_PATH"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+          rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Restore and verify Android keystore
         env:
@@ -110,34 +114,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build signed APK
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
-        run: |
-          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          def prop(value: str) -> str:
-              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
-
-          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
-              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
-              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
-              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
-              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
-              '',
-          ]), encoding='utf-8')
-          PY
-          npm run tauri android build -- --apk
-          mkdir -p release
-          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
-          test -f "$APK"
-          cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
-
       - name: Build signed AAB
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -160,10 +136,38 @@ jobs:
               '',
           ]), encoding='utf-8')
           PY
-          npm run tauri android build -- --aab
+          npm run tauri android build -- --aab --target aarch64 --target armv7
+          mkdir -p release
           AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*release*.aab' -print -quit)"
           test -f "$AAB"
           cp "$AAB" "release/Infinite-Five-v${VERSION}-Android.aab"
+
+      - name: Build supplemental signed APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
+        run: |
+          export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD KEYSTORE_PATH
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def prop(value: str) -> str:
+              return value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('=', '\\=').replace(':', '\\:')
+
+          Path('src-tauri/gen/android/keystore.properties').write_text('\n'.join([
+              f"storePassword={prop(os.environ['ANDROID_KEYSTORE_PASSWORD'])}",
+              f"keyPassword={prop(os.environ['ANDROID_KEY_PASSWORD'])}",
+              f"keyAlias={prop(os.environ['ANDROID_KEY_ALIAS'])}",
+              f"storeFile={prop(os.environ['KEYSTORE_PATH'])}",
+              '',
+          ]), encoding='utf-8')
+          PY
+          npm run tauri android build -- --apk --target aarch64 --target armv7
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          test -f "$APK"
+          cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
 
       - name: Verify Android artifacts
         env:
@@ -177,7 +181,10 @@ jobs:
           test -x "$APKSIGNER"
           test -x "$AAPT"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-          "$AAPT" dump badging "$APK" | grep -F "package: name='com.sl.infinitefive'"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          grep -F "package: name='com.sl.infinitefive'" <<<"$BADGING"
+          grep -F "sdkVersion:'26'" <<<"$BADGING"
+          grep -F "targetSdkVersion:'36'" <<<"$BADGING"
           EXPECTED_APK_CERT="$(printf '%s' "$ANDROID_APP_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           ACTUAL_APK_CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test "$ACTUAL_APK_CERT" = "$EXPECTED_APK_CERT"
@@ -185,13 +192,16 @@ jobs:
           EXPECTED_AAB_CERT="$(printf '%s' "$ANDROID_UPLOAD_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           ACTUAL_AAB_CERT="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_AAB_CERT"
+          bash scripts/verify-android-native.sh "$AAB" "$APK"
           rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
 
       - name: Upload signed Android artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: infinite-five-signed-android
-          path: release/*
+          path: |
+            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.aab
+            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -293,7 +303,12 @@ jobs:
             if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
               TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
               test "$TAG_SHA" = "$SOURCE_SHA"
-              gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber
+              gh release upload "$TAG" \
+                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
+                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
+                "release/Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
+                release/SHA256SUMS.txt \
+                --repo "$GITHUB_REPOSITORY" --clobber
               exit 0
             fi
             sleep 10

@@ -58,6 +58,19 @@ describe('native application configuration', () => {
     }
   });
 
+  it('keeps the Android SDK and NDK baseline explicit', () => {
+    const config = JSON.parse(read('src-tauri/tauri.conf.json')) as {
+      bundle?: { android?: { minSdkVersion?: number } };
+    };
+    const gradle = read(`${androidRoot}/app/build.gradle.kts`);
+
+    expect(config.bundle?.android?.minSdkVersion).toBe(26);
+    expect(gradle).toContain('minSdk = 26');
+    expect(gradle).toContain('targetSdk = 36');
+    expect(gradle).toContain('compileSdk = 36');
+    expect(gradle).toContain('ndkVersion = "29.0.14206865"');
+  });
+
   it('keeps release permissions minimal', () => {
     const releaseManifest = read(`${androidRoot}/app/src/main/AndroidManifest.xml`);
     const debugManifest = read(`${androidRoot}/app/src/debug/AndroidManifest.xml`);
@@ -77,5 +90,22 @@ describe('native application configuration', () => {
     expect(gradle).toContain('keyPassword = keystoreProperties.getProperty("keyPassword")');
     expect(gradle).toContain('storePassword = keystoreProperties.getProperty("storePassword")');
     expect(existsSync(`${androidRoot}/keystore.properties`)).toBe(false);
+  });
+
+  it('keeps release architecture and 16 KB checks in the native pipeline', () => {
+    const native = read('.github/workflows/native.yml');
+    const release = read('.github/workflows/native-release.yml');
+    const verifier = read('scripts/verify-android-native.sh');
+
+    for (const workflow of [native, release]) {
+      expect(workflow).toContain('aarch64-linux-android armv7-linux-androideabi');
+      expect(workflow).toContain('--target aarch64 --target armv7');
+      expect(workflow).not.toContain('i686-linux-android x86_64-linux-android');
+    }
+    expect(release.indexOf('Build signed AAB')).toBeLessThan(release.indexOf('Build supplemental signed APK'));
+    expect(verifier).toContain('EXPECTED_ABIS="arm64-v8a armeabi-v7a"');
+    expect(verifier).toContain('alignment >= 0x4000');
+    expect(verifier).toContain('PAGE_ALIGNMENT_16K');
+    expect(verifier).toContain('-P 16');
   });
 });
