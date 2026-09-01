@@ -2,7 +2,7 @@
 
 ## Status
 
-Infinite Five v0.5.2 is the first RuStore release candidate. The signed GitHub Release is published from source commit `292dea7669e0ce439fa6ae95de214c14a7a5ef1d`; its APK, AAB and universal macOS DMG have passed the controlled release workflow and are attached together with SHA-256 checksums. The Android application uses the stable package identity `com.sl.infinitefive`.
+Infinite Five v0.5.4 is the current RuStore release candidate. The signed GitHub Release is published from source commit `f8630060c466cca31c4733adb2ef550146393e78`; its primary Android AAB, supplemental APK and universal macOS DMG have passed the controlled release workflow and are attached together with SHA-256 checksums. The Android application uses the stable package identity `com.sl.infinitefive`.
 
 The remaining first-publication work is intentionally a RuStore Console / real-device step because it requires the developer account, store forms, AAB signing enrollment and real release screenshots. Repository automation must not store RuStore credentials or private signing material. Google Play and App Store distribution remain planned but are deferred until the required developer access is available.
 
@@ -14,26 +14,40 @@ Official RuStore references used for the release checklist:
 
 ## Release artifacts
 
-The published v0.5.2 release contains:
+The published v0.5.4 release contains:
 
 ```text
-Infinite-Five-v0.5.2-Android.apk
-Infinite-Five-v0.5.2-Android.aab
-Infinite-Five-v0.5.2-macOS-universal.dmg
+Infinite-Five-v0.5.4-Android.aab
+Infinite-Five-v0.5.4-Android.apk
+Infinite-Five-v0.5.4-macOS-universal.dmg
 SHA256SUMS.txt
 ```
 
 GitHub reports these SHA-256 digests for the native files:
 
 ```text
-75f640c9c9867272c991330455a24e973afa3d493c76f3455543da688f45bfe0  Infinite-Five-v0.5.2-Android.aab
-00104b25c9507541c6fe7b29704ae721a6c4bbb851f82ab8e4373a5a7084e627  Infinite-Five-v0.5.2-Android.apk
-5cc49aa2373a90d06077bbfdf83271581f954dff31f9889530506481360437c4  Infinite-Five-v0.5.2-macOS-universal.dmg
+762fea5faa04b9adc4f84b03841a6b6475e2f9c5d15297aafed2d4bf7d35596c  Infinite-Five-v0.5.4-Android.aab
+c330f65780ba667d4e35d80bd5bd1c23153b843d341f1a9b439bde74695f0fee  Infinite-Five-v0.5.4-Android.apk
+e8628e3609ec8c564fa59f971919a709a9bb69d1b85047a4701ff95c3858cb53  Infinite-Five-v0.5.4-macOS-universal.dmg
 ```
 
 The APK is signed with the application-signing key. The AAB is signed with the upload key. The workflow verifies both certificate fingerprints, verifies `com.sl.infinitefive`, and attaches the native files only to the GitHub Release whose tag resolves to the exact source commit that produced them.
 
 Use the AAB as the primary RuStore submission artifact after completing RuStore AAB signing enrollment. Keep the signed APK as the direct-install and fallback publication artifact.
+
+## Android release compatibility
+
+The v0.5.4 Android release baseline is:
+
+- `minSdk 26` (Android 8.0+);
+- `targetSdk 36`;
+- `compileSdk 36`;
+- NDK `29.0.14206865`;
+- production ABIs: `arm64-v8a` and `armeabi-v7a`;
+- signed AAB as the primary store artifact;
+- signed APK only as supplemental direct-install/GitHub output.
+
+The release pipeline treats 16 KB page-size support as a blocking artifact gate. It verifies every packaged 64-bit native library for ELF LOAD alignment of at least `0x4000`, validates the APK with 16 KB zip alignment, and requires `PAGE_ALIGNMENT_16K` in the AAB. Any future JNI/native dependency that breaks those guarantees must fail CI before publication.
 
 ## AAB signing enrollment
 
@@ -51,7 +65,7 @@ keytool -exportcert -alias <upload-key-alias> -keystore <keystore> -rfc -file up
 5. Upload both files in RuStore Console:
    - the PEPK ZIP containing the encrypted application-signing key;
    - `upload-cert.pem` for the key that signs the AAB.
-6. Upload `Infinite-Five-v0.5.2-Android.aab`, which the release workflow signs with that upload key.
+6. Upload `Infinite-Five-v0.5.4-Android.aab`, which the release workflow signs with that upload key.
 7. Keep both signing identities stable for every future update.
 
 If RuStore's current PEPK instructions require converting a `.jks` source keystore to `.keystore`, perform that conversion only in a trusted local environment and keep the converted file private.
@@ -95,9 +109,9 @@ Infinite Five не содержит рекламы, аналитики и тре
 
 RuStore currently limits the detailed description to 4000 characters and notes that the user may collapse it at roughly 2000 characters.
 
-### Version 0.5.2 release notes
+### Version 0.5.4 release notes
 
-Подготовлен первый релиз-кандидат для RuStore. Обновлена и дополнительно проверена Android-сборка, сокращены разрешения релизного приложения, усилена надёжность подписанного APK/AAB release pipeline и включены последние оптимизации игрового кода.
+Android-сборка приведена к актуальной базе Google Play: Android 8.0+, target/compile API 36, NDK r29, основной подписанный AAB и ARM-only release package. Добавлены обязательные проверки совместимости с 16 KB memory pages. В предыдущем v0.5.3 также добавлено локализованное окно «О приложении».
 
 ## Suggested classification
 
@@ -168,7 +182,7 @@ Current RuStore publication guidance allows a 512×512 PNG/JPG up to 3 MB and re
 
 ## Screenshots
 
-Mobile screenshots are mandatory. Use real screenshots captured from the v0.5.2 release candidate rather than mockups or generated promotional screens.
+Mobile screenshots are mandatory. Use real screenshots captured from the v0.5.4 release candidate rather than mockups or generated promotional screens.
 
 For phone screenshots, follow the stricter current console requirements:
 
@@ -188,7 +202,7 @@ Recommended five-shot set, preferably in Russian and at one consistent device re
 2. Mid-game position against Expert AI.
 3. Winning five-in-a-row with the winning line highlighted.
 4. Settings showing theme, language, sound and vibration controls.
-5. Local history or replay view.
+5. About dialog with version, developer and legal links.
 
 For the game category, RuStore specifically expects screenshots to reflect the current graphics and real gameplay. Do not add decorative mockups as substitutes for release screenshots.
 
@@ -196,12 +210,15 @@ For the game category, RuStore specifically expects screenshots to reflect the c
 
 Before clicking Submit for moderation:
 
-- GitHub Release `v0.5.2` tag resolves to the exact release source commit.
+- GitHub Release `v0.5.4` tag resolves to source commit `f8630060c466cca31c4733adb2ef550146393e78`.
 - CI, CodeQL, Security and Native Release workflows are green.
-- `Infinite-Five-v0.5.2-Android.apk`, `Infinite-Five-v0.5.2-Android.aab`, `Infinite-Five-v0.5.2-macOS-universal.dmg` and `SHA256SUMS.txt` are attached to the release.
+- `Infinite-Five-v0.5.4-Android.aab`, `Infinite-Five-v0.5.4-Android.apk`, `Infinite-Five-v0.5.4-macOS-universal.dmg` and `SHA256SUMS.txt` are attached to the release.
 - APK and AAB signatures match the expected certificates.
 - Package name is `com.sl.infinitefive`.
-- `versionName` is `0.5.2` and Android `versionCode` is higher than v0.5.1.
+- `versionName` is `0.5.4` and Android `versionCode` is higher than v0.5.3.
+- Android baseline is `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29.
+- Release packages contain `arm64-v8a` and `armeabi-v7a` only, with `arm64-v8a` present.
+- ELF, APK and AAB 16 KB compatibility gates pass.
 - Final APK contains only required permissions and does not advertise Android TV support.
 - APK installs and starts offline on a real Android device.
 - New game, AI, undo, persistence, history, replay, sharing, sound and vibration are smoke-tested on the release APK.
@@ -216,7 +233,7 @@ Before clicking Submit for moderation:
 
 ## Update SDK
 
-RuStore In-App Updates is optional for the first publication and is intentionally not a blocker for v0.5.2. Its real store flow depends on a registered/moderated RuStore application and a compatible installed RuStore client, so integration should be added and tested only after the first application entry exists in RuStore. This avoids shipping an unvalidated store-specific SDK in the initial candidate.
+RuStore In-App Updates is optional for the first publication and is intentionally not a blocker for v0.5.4. Its real store flow depends on a registered/moderated RuStore application and a compatible installed RuStore client, so integration should be added and tested only after the first application entry exists in RuStore. This avoids shipping an unvalidated store-specific SDK in the initial candidate.
 
 When added, keep the integration isolated to the Android native layer and preserve the shared TypeScript game core as store-neutral.
 

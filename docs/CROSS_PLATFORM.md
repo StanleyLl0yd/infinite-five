@@ -2,7 +2,7 @@
 
 Infinite Five keeps one TypeScript/Vite game implementation and uses Tauri 2 as the native application shell. The browser/PWA build remains a first-class target; native packaging must reuse the same game rules, AI, rendering, replay, history and localization code rather than creating platform-specific game engines.
 
-Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardens release-source verification, minimizes the production Android manifest for RuStore, synchronizes version metadata, and adds the store publication/privacy package. RuStore submission is now the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
+Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. RuStore submission is the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
 
 ## Target model
 
@@ -65,7 +65,7 @@ Android is the first planned native distribution target. The production applicat
 
 For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript game remains store-neutral.
 
-Release APKs and AABs are produced only from the tagged release source. The APK uses the application-signing alias. The AAB uses the upload-key alias expected by the store workflow. Both aliases may live in the same Java keystore, while keeping the logical keys separate is preferred. The release workflow verifies certificate SHA-256 fingerprints before building and verifies the resulting APK/AAB signatures before publishing artifacts.
+Release AABs and supplemental APKs are produced only from the tagged release source. The AAB is the primary store artifact and uses the upload-key alias expected by the store workflow; the APK is supplemental direct-install output and uses the application-signing alias. Android production packages contain only `arm64-v8a` and `armeabi-v7a`. The project baseline is `minSdk 26`, `targetSdk 36`, `compileSdk 36`, with NDK `29.0.14206865`. The release workflow verifies certificate SHA-256 fingerprints before building, verifies the resulting signatures, and rejects artifacts that fail the expected ABI set, 16 KB ELF LOAD alignment, APK 16 KB zip alignment, or AAB `PAGE_ALIGNMENT_16K` checks.
 
 The Android release secret contract is:
 
@@ -86,7 +86,7 @@ If the initial keystore contains only one suitable key, the app and upload alias
 
 macOS is a supported native target in the architecture even if it is not the first public native release target. Direct distribution can use a Tauri-generated application bundle/DMG without relying on the Mac App Store. The canonical bundle identity is `com.sl.infinitefive`.
 
-Release v0.5.2 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
+Release v0.5.4 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
 When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
 
@@ -97,8 +97,8 @@ When the required Apple developer access becomes available, replace ad-hoc signi
 For each successful run it builds and verifies:
 
 ```text
-Infinite-Five-v<version>-Android.apk
 Infinite-Five-v<version>-Android.aab
+Infinite-Five-v<version>-Android.apk
 Infinite-Five-v<version>-macOS-universal.dmg
 SHA256SUMS.txt
 ```
@@ -130,6 +130,7 @@ Before calling a native target supported for public release, verify at minimum:
 - touch/pointer/keyboard behavior appropriate to the platform;
 - share/replay behavior;
 - only necessary permissions in the final package;
-- signing and update behavior for the intended distribution channel.
+- signing and update behavior for the intended distribution channel;
+- Android release ABI shape and 16 KB ELF/APK/AAB compatibility when Android is targeted.
 
 A successful CI package build is a compatibility signal, not a substitute for testing the application on real hardware.

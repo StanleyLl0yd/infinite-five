@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.4-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.5.2** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.2 вошли полный аудит и рефакторинг репозитория, усиленная проверка неизменяемого release-исходника, минимизированный production manifest Android для RuStore, документы для публикации и конфиденциальности, подписанные APK/AAB и ad-hoc подписанный universal DMG для macOS. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
+Текущий опубликованный релиз: **v0.5.4** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.3 добавлено локализованное окно About с версией приложения, разработчиком и ссылками на GitHub/политику/условия. В v0.5.4 Android приведён к актуальной базе Google Play: `minSdk 26`, `targetSdk 36`, `compileSdk 36`, закреплён NDK r29, AAB сделан основным подписанным release-форматом, production ABI ограничены `arm64-v8a` + `armeabi-v7a`, а совместимость с 16 KB memory pages проверяется автоматически. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
 
 ## 🎯 Правила
 
@@ -66,7 +66,8 @@
 - устанавливаемая PWA с офлайн-готовностью и уведомлением о новой версии;
 - автоматическая защищённая публикация на GitHub Pages;
 - общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра;
-- release-сборка подписанных Android APK/AAB из GitHub Secrets с проверкой сертификата и Application ID;
+- AAB-first release-сборка Android из GitHub Secrets с проверкой сертификатов/Application ID, `arm64-v8a` + `armeabi-v7a` и обязательной 16 KB native-совместимостью;
+- дополнительный подписанный APK для прямой установки и GitHub Releases;
 - universal DMG для macOS с ad-hoc подписью до появления Developer ID signing/notarization.
 
 ## 🕹 Управление
@@ -228,12 +229,12 @@ Push и pull request автоматически проходят GitHub Actions:
 - unit- и regression-тесты Vitest для поля, истории, обмена партиями, локализации, нативного идентификатора, тактики AI и AI Lab;
 - regression-тест ограниченной отрисовки на состоянии с 5 000 ходов;
 - TypeScript-проверка и production build;
-- проверка сборки Android APK и universal macOS DMG для нативных изменений;
+- проверка сборки Android AAB/APK и universal macOS DMG для нативных изменений;
 - CodeQL с `security-extended`;
 - Semgrep с правилами безопасности и поиска секретов;
 - Gitleaks с проверкой полной истории Git.
 
-Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки. Release workflow дополнительно проверяет подписи Android и `com.sl.infinitefive`, собирает подписанные APK/AAB и ad-hoc подписанный universal DMG, формирует SHA-256 checksums и прикладывает файлы к соответствующему GitHub Release.
+Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки. Release workflow дополнительно проверяет подписи Android, `com.sl.infinitefive`, SDK levels, ABI, ELF LOAD alignment не менее 16 KB, APK zip alignment 16 KB и AAB `PAGE_ALIGNMENT_16K`; основным Android-артефактом публикуется подписанный AAB, дополнительным — подписанный APK, вместе с ad-hoc подписанным universal DMG и SHA-256 checksums.
 
 ## 🔐 Безопасность
 
@@ -264,9 +265,13 @@ Push и pull request автоматически проходят GitHub Actions:
 
 В **v0.5.2** завершены: полный аудит/рефакторинг репозитория, усиление release-source verification, минимизация Android manifest для RuStore, синхронизация release-метаданных, checklist публикации, политика конфиденциальности, пользовательские условия и первый RuStore release candidate.
 
+В **v0.5.3** завершены: компактная локализованная кнопка/панель About с версией приложения, разработчиком и ссылками на GitHub, политику конфиденциальности и условия использования.
+
+В **v0.5.4** завершены: Android 8.0+ (`minSdk 26`), target/compile API 36, NDK r29, AAB-first release pipeline, ARM-only production ABI и обязательные проверки совместимости ELF/APK/AAB с 16 KB memory pages.
+
 Следующие приоритеты:
 
-- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.5.2 на модерацию;
+- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.5.4 на модерацию;
 - подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;
 - добавить Google Play и iOS/App Store после появления необходимого developer-доступа;
 - продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;
