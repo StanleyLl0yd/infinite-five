@@ -1,12 +1,7 @@
 import { Board } from '../game/board';
 import type { Move, Position, WinningLine } from '../game/types';
 
-interface ScreenPoint {
-  x: number;
-  y: number;
-}
-
-interface WorldPoint {
+interface Point {
   x: number;
   y: number;
 }
@@ -33,7 +28,7 @@ const clamp = (value: number, min: number, max: number) =>
 
 export class CanvasBoard {
   private readonly context: CanvasRenderingContext2D;
-  private readonly pointers = new Map<number, ScreenPoint>();
+  private readonly pointers = new Map<number, Point>();
   private readonly resizeObserver: ResizeObserver;
   private readonly cursorStatus: HTMLElement | null;
   private width = 0;
@@ -42,13 +37,12 @@ export class CanvasBoard {
   private cameraX = 0.5;
   private cameraY = 0.5;
   private keyboardCell: Position = { x: 0, y: 0 };
-  private pointerStart: ScreenPoint | null = null;
-  private lastPointer: ScreenPoint | null = null;
-  private pointerType = 'mouse';
+  private pointerStart: Point | null = null;
+  private lastPointer: Point | null = null;
   private moved = false;
   private multiPointerGesture = false;
   private pinchDistance = 0;
-  private pinchMidpoint: ScreenPoint | null = null;
+  private pinchMidpoint: Point | null = null;
   private winningLine: WinningLine | null = null;
   private winProgress = 1;
   private emphasizeWin = false;
@@ -329,31 +323,31 @@ export class CanvasBoard {
     return (y - this.cameraY) * this.cellSize + this.height / 2;
   }
 
-  private screenToWorld(point: ScreenPoint): WorldPoint {
+  private screenToWorld(point: Point): Point {
     return {
       x: (point.x - this.width / 2) / this.cellSize + this.cameraX,
       y: (point.y - this.height / 2) / this.cellSize + this.cameraY
     };
   }
 
-  private screenToCell(point: ScreenPoint): Position {
+  private screenToCell(point: Point): Position {
     const world = this.screenToWorld(point);
     return { x: Math.floor(world.x), y: Math.floor(world.y) };
   }
 
-  private eventPoint(event: PointerEvent | WheelEvent): ScreenPoint {
+  private eventPoint(event: PointerEvent | WheelEvent): Point {
     const rect = this.canvas.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
-  private zoomAt(point: ScreenPoint, nextSize: number): void {
+  private zoomAt(point: Point, nextSize: number): void {
     const anchor = this.screenToWorld(point);
     this.cellSize = clamp(nextSize, 28, 92);
     this.cameraX = anchor.x - (point.x - this.width / 2) / this.cellSize;
     this.cameraY = anchor.y - (point.y - this.height / 2) / this.cellSize;
   }
 
-  private keyboardCellCenter(): ScreenPoint {
+  private keyboardCellCenter(): Point {
     return {
       x: this.worldToScreenX(this.keyboardCell.x + 0.5),
       y: this.worldToScreenY(this.keyboardCell.y + 0.5)
@@ -392,7 +386,6 @@ export class CanvasBoard {
     if (this.pointers.size === 1) {
       this.pointerStart = point;
       this.lastPointer = point;
-      this.pointerType = event.pointerType;
       this.moved = false;
     } else {
       this.multiPointerGesture = true;
@@ -410,7 +403,7 @@ export class CanvasBoard {
     this.pointers.set(event.pointerId, point);
 
     if (this.pointers.size === 1 && this.lastPointer && !this.multiPointerGesture) {
-      const threshold = this.pointerType === 'touch' ? 10 : 5;
+      const threshold = event.pointerType === 'touch' ? 10 : 5;
       const distance = this.pointerStart
         ? Math.hypot(point.x - this.pointerStart.x, point.y - this.pointerStart.y)
         : 0;

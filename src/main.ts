@@ -564,7 +564,6 @@ const renderHistory = (): void => {
       row.append(replayButton);
     } else {
       const unavailable = document.createElement('span');
-      unavailable.className = 'history-replay-unavailable';
       unavailable.textContent = text.replayUnavailable;
       row.append(unavailable);
     }
@@ -803,7 +802,7 @@ const exitReplay = (): void => {
 };
 
 const shareGame = async (): Promise<void> => {
-  const moves = replay?.moves ?? [...board.getMoves()];
+  const moves = replay?.moves ?? board.getMoves();
   if (moves.length === 0) return;
   const url = createShareUrl(moves, window.location.href);
 
@@ -858,7 +857,7 @@ applyTheme();
 humanMark = chooseHumanMark();
 
 const sharedMoves = readSharedGameFromHash(window.location.hash);
-const loadedSavedGame = sharedMoves ? false : loadSavedGame();
+const loadedSavedGame = !sharedMoves && loadSavedGame();
 resolveGameState();
 
 view = new CanvasBoard(canvas, board, handleCellClick);

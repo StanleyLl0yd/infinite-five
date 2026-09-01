@@ -306,9 +306,7 @@ const chooseEasy = (board: Board, mark: Mark): Position => {
     return blocks[Math.floor(Math.random() * blocks.length)];
   }
 
-  const ranked = candidates
-    .map((position) => ({ position, score: rankScore(board, position, mark) }))
-    .sort((a, b) => b.score - a.score);
+  const ranked = rankedCandidates(board, mark, 1);
   const poolSize = Math.max(1, Math.min(ranked.length, Math.ceil(ranked.length * 0.35), 10));
   return ranked[Math.floor(Math.random() * poolSize)].position;
 };
@@ -320,18 +318,15 @@ const chooseMedium = (board: Board, mark: Mark, seed: number): Position => {
   if (wins.length > 0) return wins[0];
 
   const blocks = findWinningMoves(board, opponentOf(mark), candidates);
-  if (blocks.length > 0) {
-    return blocks.sort((a, b) => rankScore(board, b, mark) - rankScore(board, a, mark))[0];
-  }
+  if (blocks.length > 0) return blocks[0];
 
-  const bestScore = ranked[0]?.score ?? 0;
+  const bestScore = ranked[0].score;
   const pool = ranked.filter(({ score }) => score >= bestScore * 0.94).slice(0, 3);
-  return [...pool]
-    .sort(
-      (a, b) =>
-        b.score + positionNoise(b.position, seed) * 0.02 * Math.max(1, bestScore) -
-        (a.score + positionNoise(a.position, seed) * 0.02 * Math.max(1, bestScore))
-    )[0]?.position ?? ranked[0].position;
+  return pool.sort(
+    (a, b) =>
+      b.score + positionNoise(b.position, seed) * 0.02 * Math.max(1, bestScore) -
+      (a.score + positionNoise(a.position, seed) * 0.02 * Math.max(1, bestScore))
+  )[0].position;
 };
 
 const evaluateHardCandidate = (
@@ -389,9 +384,7 @@ const chooseHard = (board: Board, mark: Mark, context: SearchContext): Position 
 
   const opponent = opponentOf(mark);
   const blocks = findWinningMoves(board, opponent, candidates);
-  if (blocks.length > 0) {
-    return blocks.sort((a, b) => rankScore(board, b, mark) - rankScore(board, a, mark))[0];
-  }
+  if (blocks.length > 0) return blocks[0];
 
   const opponentForks = findDoubleThreatMoves(
     board,
@@ -407,7 +400,7 @@ const chooseHard = (board: Board, mark: Mark, context: SearchContext): Position 
   let best = ranked[0];
   let bestScore = Number.NEGATIVE_INFINITY;
   for (const candidate of ranked.slice(0, 26)) {
-    if (Date.now() >= context.deadline && best) {
+    if (Date.now() >= context.deadline) {
       context.timedOut = true;
       break;
     }
@@ -673,7 +666,7 @@ const chooseExpert = (
       scored.push({ position: candidate.position, score: result.score });
     }
 
-    if (!iterationComplete || scored.length !== ordered.length) {
+    if (!iterationComplete) {
       break;
     }
 
@@ -681,7 +674,7 @@ const chooseExpert = (
     best = scored[0];
     completedDepth = depth;
     const scoreByKey = new Map(scored.map((entry) => [keyOf(entry.position.x, entry.position.y), entry.score]));
-    ordered = ordered.sort(
+    ordered.sort(
       (a, b) =>
         (scoreByKey.get(keyOf(b.position.x, b.position.y)) ?? b.score) -
         (scoreByKey.get(keyOf(a.position.x, a.position.y)) ?? a.score)
