@@ -8,41 +8,34 @@ const directions: ReadonlyArray<readonly [number, number]> = [
   [1, -1]
 ];
 
-const collect = (
-  board: Board,
-  move: Move,
-  dx: number,
-  dy: number
-): Position[] => {
-  const positions: Position[] = [];
+const count = (board: Board, move: Move, dx: number, dy: number): number => {
+  let result = 0;
   let x = move.x + dx;
   let y = move.y + dy;
 
   while (board.get(x, y) === move.mark) {
-    positions.push({ x, y });
+    result += 1;
     x += dx;
     y += dy;
   }
 
-  return positions;
+  return result;
 };
 
-export const getWinningLine = (
-  board: Board,
-  move: Move
-): WinningLine | null => {
+export const getWinningLine = (board: Board, move: Move): WinningLine | null => {
   for (const [dx, dy] of directions) {
-    const before = collect(board, move, -dx, -dy).reverse();
-    const after = collect(board, move, dx, dy);
-    const positions = [...before, { x: move.x, y: move.y }, ...after];
+    const before = count(board, move, -dx, -dy);
+    const after = count(board, move, dx, dy);
+    const length = before + after + 1;
+    if (length < 5) continue;
 
-    if (positions.length >= 5) {
-      return {
-        positions,
-        start: positions[0],
-        end: positions[positions.length - 1]
-      };
-    }
+    const start = { x: move.x - before * dx, y: move.y - before * dy };
+    const end = { x: move.x + after * dx, y: move.y + after * dy };
+    const positions: Position[] = Array.from({ length }, (_, index) => ({
+      x: start.x + index * dx,
+      y: start.y + index * dy
+    }));
+    return { positions, start, end };
   }
 
   return null;
