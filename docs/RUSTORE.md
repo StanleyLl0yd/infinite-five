@@ -67,6 +67,15 @@ Infinite Five не содержит рекламы, аналитики и тре
 - Monetization: free, no purchases, no subscriptions.
 - Ads: none.
 
+## Public policies and developer information
+
+The repository contains the public documents required for store distribution:
+
+- `PRIVACY.md` — bilingual privacy policy;
+- `TERMS.md` — bilingual application terms of use.
+
+Use their public GitHub URLs in the corresponding RuStore fields. Developer legal/registration details and direct contact data belong in RuStore Console and must not be committed to the repository merely for store submission. Complete all mandatory developer-contact fields in the console before moderation.
+
 ## Data and privacy declaration
 
 Current application behavior:
@@ -110,6 +119,7 @@ Before clicking Submit for moderation:
 - New game, AI, undo, persistence, history, replay, sharing, sound and vibration are smoke-tested on the release APK.
 - Upgrade from the previous signed APK preserves local data.
 - AAB signing enrollment is completed in RuStore when AAB is used.
+- Privacy-policy and terms links are filled in.
 - Store name, descriptions, category, age rating, screenshots, developer contacts and data declaration are filled in.
 - The release is submitted for RuStore moderation.
 
