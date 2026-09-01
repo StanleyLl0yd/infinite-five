@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   screenshots:
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Capture signed v0.5.2 in Android emulator
@@ -87,7 +87,6 @@ jobs:
             sleep 2
             shot 02-home-ru
 
-            tap_text 'Сложность' || true
             tap_text 'Легко' || tap_text 'Easy' || adb shell input tap 760 360
             sleep 1
             tap_text 'Эксперт' || tap_text 'Expert' || adb shell input tap 760 620
