@@ -13,7 +13,13 @@ describe('getWinningLine', () => {
 
     expect(line?.start).toEqual({ x: 0, y: 0 });
     expect(line?.end).toEqual({ x: 4, y: 0 });
-    expect(line?.positions).toHaveLength(5);
+    expect(line?.positions).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+      { x: 3, y: 0 },
+      { x: 4, y: 0 }
+    ]);
   });
 
   it('detects lines longer than five', () => {
@@ -24,7 +30,14 @@ describe('getWinningLine', () => {
 
     const line = getWinningLine(board, { x: 2, y: 1, mark: 'O' });
 
-    expect(line?.positions).toHaveLength(6);
+    expect(line?.positions).toEqual([
+      { x: 2, y: -2 },
+      { x: 2, y: -1 },
+      { x: 2, y: 0 },
+      { x: 2, y: 1 },
+      { x: 2, y: 2 },
+      { x: 2, y: 3 }
+    ]);
   });
 
   it('detects both diagonal directions', () => {
