@@ -307,8 +307,8 @@ const chooseEasy = (board: Board, mark: Mark): Position => {
   }
 
   const ranked = candidates
-  .map((position) => ({ position, score: rankScore(board, position, mark) }))
-  .sort((a, b) => b.score - a.score);
+    .map((position) => ({ position, score: rankScore(board, position, mark) }))
+    .sort((a, b) => b.score - a.score);
   const poolSize = Math.max(1, Math.min(ranked.length, Math.ceil(ranked.length * 0.35), 10));
   return ranked[Math.floor(Math.random() * poolSize)].position;
 };
