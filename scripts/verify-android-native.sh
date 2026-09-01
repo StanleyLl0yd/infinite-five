@@ -18,7 +18,18 @@ verify_abis() {
   local archive="$1"
   local prefix="$2"
   local actual
-  actual="$(unzip -Z1 "$archive" | sed -n "s#^${prefix}\([^/]*\)/[^/]*\.so$#\1#p" | sort -u | tr '\n' ' ' | sed 's/ $//')"
+  actual="$(
+    unzip -Z1 "$archive" |
+      awk -v prefix="$prefix" '
+        index($0, prefix) == 1 && $0 ~ /\.so$/ {
+          relative = substr($0, length(prefix) + 1)
+          count = split(relative, parts, "/")
+          if (count == 2) print parts[1]
+        }
+      ' |
+      sort -u |
+      paste -sd ' ' -
+  )"
   test "$actual" = "$EXPECTED_ABIS"
 }
 
