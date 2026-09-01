@@ -2,9 +2,9 @@
 
 ## Status
 
-Infinite Five v0.5.2 is the first RuStore release candidate. The Android application uses the stable package identity `com.sl.infinitefive` and the controlled release-signing pipeline. Google Play and App Store distribution remain planned but are intentionally deferred until the required developer access is available.
+Infinite Five v0.5.2 is the first RuStore release candidate. The signed GitHub Release is published from source commit `292dea7669e0ce439fa6ae95de214c14a7a5ef1d`; its APK, AAB and universal macOS DMG have passed the controlled release workflow and are attached together with SHA-256 checksums. The Android application uses the stable package identity `com.sl.infinitefive`.
 
-The first RuStore submission itself is a console step because it requires the developer account, store forms, signing enrollment and real release screenshots. Repository automation prepares and verifies the upload artifacts but must not store RuStore credentials or private signing material.
+The remaining first-publication work is intentionally a RuStore Console / real-device step because it requires the developer account, store forms, AAB signing enrollment and real release screenshots. Repository automation must not store RuStore credentials or private signing material. Google Play and App Store distribution remain planned but are deferred until the required developer access is available.
 
 Official RuStore references used for the release checklist:
 
@@ -14,13 +14,21 @@ Official RuStore references used for the release checklist:
 
 ## Release artifacts
 
-The controlled native release workflow produces:
+The published v0.5.2 release contains:
 
 ```text
 Infinite-Five-v0.5.2-Android.apk
 Infinite-Five-v0.5.2-Android.aab
 Infinite-Five-v0.5.2-macOS-universal.dmg
 SHA256SUMS.txt
+```
+
+GitHub reports these SHA-256 digests for the native files:
+
+```text
+75f640c9c9867272c991330455a24e973afa3d493c76f3455543da688f45bfe0  Infinite-Five-v0.5.2-Android.aab
+00104b25c9507541c6fe7b29704ae721a6c4bbb851f82ab8e4373a5a7084e627  Infinite-Five-v0.5.2-Android.apk
+5cc49aa2373a90d06077bbfdf83271581f954dff31f9889530506481360437c4  Infinite-Five-v0.5.2-macOS-universal.dmg
 ```
 
 The APK is signed with the application-signing key. The AAB is signed with the upload key. The workflow verifies both certificate fingerprints, verifies `com.sl.infinitefive`, and attaches the native files only to the GitHub Release whose tag resolves to the exact source commit that produced them.
@@ -141,18 +149,22 @@ Use these facts when completing the RuStore user-data and sensitive-permissions 
 
 ## Store icon
 
-Use the canonical Infinite Five artwork and export a dedicated store image rather than changing the in-app launcher identity.
+Use the prepared store-only asset:
 
-Current RuStore publication guidance requires the mobile store icon to be:
+```text
+docs/assets/rustore/infinite-five-icon-512.png
+```
+
+It preserves the canonical Infinite Five artwork while flattening the background to every edge. The app/PWA launcher artwork remains unchanged.
+
+The prepared PNG is:
 
 - 512×512 px;
-- PNG or JPG;
-- no more than 3 MB;
-- completely background-filled to every edge, with no transparent or unfilled contour.
+- PNG;
+- 8,046 bytes;
+- fully opaque with a background-filled outer contour.
 
-The general RuStore application-requirements guide currently states an even stricter 1 MB maximum for an icon. Use a 512×512 PNG/JPG below **1 MB** so the asset satisfies both published limits.
-
-`public/icon-512.png` has the required pixel dimensions and is far below either size limit. Before using it in the store, visually/technically confirm that the outer contour is fully background-filled with no transparency. If it is transparent, export a RuStore-specific 512×512 flattened version from the canonical artwork; do not alter the app icon merely to satisfy the store-card asset requirement.
+Current RuStore publication guidance allows a 512×512 PNG/JPG up to 3 MB and requires a completely background-filled contour. The general RuStore application-requirements guide currently states an even stricter 1 MB maximum. The prepared asset satisfies both published size limits.
 
 ## Screenshots
 
@@ -196,7 +208,7 @@ Before clicking Submit for moderation:
 - Upgrade from the previous signed APK preserves local data.
 - AAB signing enrollment is completed in RuStore before the AAB upload.
 - PEPK application-signing ZIP and upload-key PEM are prepared and submitted privately through RuStore Console.
-- Store icon is 512×512, below 1 MB and has a fully filled background.
+- `docs/assets/rustore/infinite-five-icon-512.png` is used as the mobile store icon.
 - At least three real phone screenshots meet the current size/orientation requirements.
 - Privacy-policy and terms links are filled in.
 - Store name, descriptions, category, game-content labels, age rating, developer contact and user-data declaration are filled in.
