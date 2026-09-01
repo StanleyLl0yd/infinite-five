@@ -26,7 +26,7 @@ const fromBase64Url = (value: string): string => {
 };
 
 const isCoordinate = (value: unknown): value is number =>
-  Number.isInteger(value) && Math.abs(value as number) <= maxCoordinate;
+  typeof value === 'number' && Number.isInteger(value) && Math.abs(value) <= maxCoordinate;
 
 export const encodeSharedGame = (moves: readonly Move[]): string => {
   if (moves.length === 0 || moves.length > maxSharedMoves) {

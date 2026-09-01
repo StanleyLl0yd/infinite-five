@@ -54,6 +54,9 @@
               vertical or diagonal line. Drag the board to move it and use the mouse wheel or
               pinch to zoom.
             </p>
+            <button id="aboutButton" class="about-button" type="button" aria-label="About" title="About">
+              <span aria-hidden="true">i</span>
+            </button>
           </div>
           <div class="game-options" aria-label="Game options">
             <label class="option-field">
@@ -104,6 +107,22 @@
           </div>
         </div>
       </main>
+
+      <dialog id="aboutDialog" class="modal-dialog about-dialog" aria-labelledby="aboutTitle">
+        <div class="dialog-body">
+          <h2 id="aboutTitle">About Infinite Five</h2>
+          <p id="aboutIntro">Five in a row on an infinite board. Play locally or challenge the computer from Easy to Expert.</p>
+          <p class="about-meta"><span id="aboutVersionLabel">Version</span> <span id="aboutVersion"></span></p>
+          <p id="aboutDeveloper" class="about-developer">Developer: Stanley Lloyd</p>
+          <div class="about-links">
+            <a id="aboutGitHub" href="https://github.com/StanleyLl0yd/infinite-five" target="_blank" rel="noreferrer">GitHub</a>
+            <a id="aboutPrivacy" href="https://github.com/StanleyLl0yd/infinite-five/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">Privacy Policy</a>
+            <a id="aboutTerms" href="https://github.com/StanleyLl0yd/infinite-five/blob/main/TERMS.md" target="_blank" rel="noreferrer">Terms of Use</a>
+          </div>
+          <p id="aboutRights" class="about-rights">© 2026 Stanley Lloyd. All rights reserved.</p>
+          <div class="dialog-actions"><button id="aboutCloseButton" type="button" class="primary">Close</button></div>
+        </div>
+      </dialog>
     </div>
 
     <dialog id="resultDialog" class="modal-dialog result-dialog" aria-labelledby="resultDialogTitle">
@@ -196,6 +215,5 @@
     </div>
 
     <script type="module" src="/src/main.ts"></script>
-    <script type="module" src="/src/about.ts"></script>
   </body>
 </html>

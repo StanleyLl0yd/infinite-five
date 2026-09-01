@@ -1,4 +1,5 @@
 import './styles.css';
+import { version } from '../package.json';
 import { registerSW } from 'virtual:pwa-register';
 import { requestAiMove } from './game/ai-client';
 import type { AiDifficulty } from './game/ai';
@@ -97,6 +98,18 @@ const themeButton = getElement<HTMLButtonElement>('#themeButton');
 const historyButton = getElement<HTMLButtonElement>('#historyButton');
 const settingsButton = getElement<HTMLButtonElement>('#settingsButton');
 const newGameButton = getElement<HTMLButtonElement>('#newGameButton');
+const aboutButton = getElement<HTMLButtonElement>('#aboutButton');
+const aboutDialog = getElement<HTMLDialogElement>('#aboutDialog');
+const aboutTitle = getElement<HTMLElement>('#aboutTitle');
+const aboutIntro = getElement<HTMLElement>('#aboutIntro');
+const aboutVersionLabel = getElement<HTMLElement>('#aboutVersionLabel');
+const aboutVersion = getElement<HTMLElement>('#aboutVersion');
+const aboutDeveloper = getElement<HTMLElement>('#aboutDeveloper');
+const aboutGitHub = getElement<HTMLAnchorElement>('#aboutGitHub');
+const aboutPrivacy = getElement<HTMLAnchorElement>('#aboutPrivacy');
+const aboutTerms = getElement<HTMLAnchorElement>('#aboutTerms');
+const aboutRights = getElement<HTMLElement>('#aboutRights');
+const aboutCloseButton = getElement<HTMLButtonElement>('#aboutCloseButton');
 const modeSelect = getElement<HTMLSelectElement>('#modeSelect');
 const difficultySelect = getElement<HTMLSelectElement>('#difficultySelect');
 const gameOptions = getElement<HTMLElement>('.game-options');
@@ -252,6 +265,18 @@ const applyTranslations = (): void => {
   metaDescription.content = text.metaDescription;
   gameInfoTitle.textContent = text.infoTitle;
   gameInfoRules.textContent = text.infoRules;
+  aboutButton.setAttribute('aria-label', text.aboutLabel);
+  aboutButton.title = text.aboutLabel;
+  aboutTitle.textContent = text.aboutTitle;
+  aboutIntro.textContent = text.aboutIntro;
+  aboutVersionLabel.textContent = text.aboutVersion;
+  aboutVersion.textContent = version;
+  aboutDeveloper.textContent = text.aboutDeveloper;
+  aboutGitHub.textContent = text.aboutGitHub;
+  aboutPrivacy.textContent = text.aboutPrivacy;
+  aboutTerms.textContent = text.aboutTerms;
+  aboutRights.textContent = text.aboutRights;
+  aboutCloseButton.textContent = text.close;
   gameOptions.setAttribute('aria-label', text.gameOptionsLabel);
   canvas.setAttribute('aria-label', text.boardLabel);
   canvas.dataset.cellLabel = text.cellLabel;
@@ -726,8 +751,7 @@ const scheduleAiTurn = (): void => {
   refreshUi();
   aiTimer = window.setTimeout(() => {
     aiTimer = null;
-    const snapshot = [...board.getMoves()];
-    void requestAiMove(snapshot, computerMark(), settings.difficulty).then((position) => {
+    void requestAiMove(board.getMoves(), computerMark(), settings.difficulty).then((position) => {
       if (requestVersion !== aiRequestVersion || replay || winner || currentMark !== computerMark()) return;
       aiThinking = false;
       applyMove(position, computerMark());
@@ -894,6 +918,9 @@ historyButton.addEventListener('click', () => {
   historyDialog.showModal();
 });
 historyCloseButton.addEventListener('click', () => historyDialog.close());
+
+aboutButton.addEventListener('click', () => aboutDialog.showModal());
+aboutCloseButton.addEventListener('click', () => aboutDialog.close());
 
 settingsButton.addEventListener('click', () => {
   syncSettingsDialog();
