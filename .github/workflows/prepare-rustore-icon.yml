@@ -1,0 +1,37 @@
+name: Prepare RuStore store icon
+
+on:
+  push:
+    branches:
+      - docs/post-release-v0.5.2
+    paths:
+      - .github/workflows/prepare-rustore-icon.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - name: Flatten store icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v convert >/dev/null
+          mkdir -p docs/assets/rustore
+          convert public/icon-512.png -background '#111827' -alpha remove -alpha off PNG24:docs/assets/rustore/infinite-five-icon-512.png
+          test "$(identify -format '%wx%h' docs/assets/rustore/infinite-five-icon-512.png)" = "512x512"
+          test "$(identify -format '%[opaque]' docs/assets/rustore/infinite-five-icon-512.png)" = "true"
+          test "$(stat -c%s docs/assets/rustore/infinite-five-icon-512.png)" -lt 1000000
+          git add docs/assets/rustore/infinite-five-icon-512.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add RuStore store icon"
+          git push
