@@ -1,0 +1,66 @@
+name: Sync Version Temp
+
+on:
+  push:
+    branches:
+      - android/google-play-16kb
+    paths:
+      - .github/workflows/sync-version-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.event.head_commit.message == 'Add temporary v0.5.4 sync workflow'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: android/google-play-16kb
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Synchronize v0.5.4
+        shell: bash
+        run: |
+          npm version 0.5.4 --no-git-tag-version
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path = 'src-tauri/tauri.conf.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          config.version = '0.5.4';
+          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+          NODE
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src-tauri/Cargo.toml')
+          text = path.read_text()
+          text = text.replace('version = "0.5.3"', 'version = "0.5.4"', 1)
+          path.write_text(text)
+          PY
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 >/dev/null
+
+      - name: Verify synchronized versions
+        shell: bash
+        run: |
+          test "$(node -p "require('./package.json').version")" = "0.5.4"
+          test "$(node -p "require('./package-lock.json').version")" = "0.5.4"
+          test "$(node -p "require('./src-tauri/tauri.conf.json').version")" = "0.5.4"
+          grep -q '^version = "0.5.4"$' src-tauri/Cargo.toml
+          grep -A2 '^name = "infinite-five"$' src-tauri/Cargo.lock | grep -q 'version = "0.5.4"'
+
+      - name: Commit synchronized version files
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
+          git commit -m 'Prepare v0.5.4 release'
+          git push
