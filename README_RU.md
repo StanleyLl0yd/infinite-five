@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.5.0** · Web + PWA · GitHub Pages. В v0.5.0 также зафиксирована кроссплатформенная основа Tauri 2 и воспроизводимая проверка нативных пакетов; это не означает публикацию подписанного Android-, macOS- или iOS-приложения в магазине.
+Текущий опубликованный релиз: **v0.5.1** · Web + PWA · GitHub Pages + нативные release-файлы. В v0.5.0 была заложена кроссплатформенная основа Tauri 2; v0.5.1 добавляет подпись Android из GitHub Secrets, проверенную сборку APK/AAB и ad-hoc подписанный universal DMG для macOS. Публикация в RuStore, нотарифицированная macOS-сборка и публикация iOS остаются отдельными этапами.
 
 ## 🎯 Правила
 
@@ -65,7 +65,9 @@
 - компактные мобильные кнопки вместо скрытия важных действий;
 - устанавливаемая PWA с офлайн-готовностью и уведомлением о новой версии;
 - автоматическая защищённая публикация на GitHub Pages;
-- общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра.
+- общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра;
+- release-сборка подписанных Android APK/AAB из GitHub Secrets с проверкой сертификата и Application ID;
+- universal DMG для macOS с ad-hoc подписью до появления Developer ID signing/notarization.
 
 ## 🕹 Управление
 
@@ -124,7 +126,7 @@ Canvas-поле можно сфокусировать и полностью ис
 
 Стабильный Application ID / Bundle ID нативного приложения — **`com.sl.infinitefive`**. Конфигурация Tauri, Android Gradle namespace/applicationId, Kotlin package paths, тесты, workflows и документация должны оставаться синхронизированы с этим идентификатором.
 
-Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Kotlin/Swift/Rust-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры и AI остаются общими.
+Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift/Rust-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры и AI остаются общими.
 
 Подробности, идентификатор приложения и требования к проверке нативных сборок — в [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md).
 
@@ -231,7 +233,7 @@ Push и pull request автоматически проходят GitHub Actions:
 - Semgrep с правилами безопасности и поиска секретов;
 - Gitleaks с проверкой полной истории Git.
 
-Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки; подпись и публичная публикация остаются отдельным этапом канала распространения.
+Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки. Release workflow дополнительно проверяет подписи Android и `com.sl.infinitefive`, собирает подписанные APK/AAB и ad-hoc подписанный universal DMG, формирует SHA-256 checksums и прикладывает файлы к соответствующему GitHub Release.
 
 ## 🔐 Безопасность
 
@@ -258,9 +260,11 @@ Push и pull request автоматически проходят GitHub Actions:
 
 В **v0.5.0** завершены: общая нативная оболочка Tauri 2, стабильный идентификатор приложения `com.sl.infinitefive`, сгенерированный Android-проект, regression-проверка идентификатора и package-build проверка Android/macOS.
 
+В **v0.5.1** завершены: подпись Android из GitHub Secrets, проверенная release-сборка APK/AAB, universal DMG для macOS, checksums и автоматическое добавление нативных файлов в GitHub Release.
+
 Следующие приоритеты:
 
-- подготовить Android release signing, нативные интеграции и публикацию в RuStore;
+- завершить Android native-интеграции и публикацию в RuStore;
 - подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;
 - добавить iOS-упаковку по мере появления необходимого Apple-доступа;
 - продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;

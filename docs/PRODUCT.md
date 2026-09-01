@@ -4,7 +4,7 @@
 
 Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The TypeScript/Vite implementation is the shared game implementation for the browser and native application shells so platform expansion does not create separate game engines.
 
-Current published release: **v0.5.0**.
+Current published release: **v0.5.1**.
 
 ## Core rules
 
@@ -59,13 +59,13 @@ Online multiplayer remains outside the current release and may be added later wi
 
 The browser/PWA remains a first-class target. Native applications use Tauri 2 around the same compiled frontend and game core rather than separate Kotlin, Swift or desktop implementations.
 
-Release v0.5.0 establishes the cross-platform Tauri foundation, generated Android project and native build verification. The first planned public native distribution target is Android through RuStore. macOS direct distribution is kept as an architectural target and can precede any Mac App Store publication. iOS and additional Android stores can be added when the required distribution access is available. Windows and Linux may be evaluated later without changing the shared game implementation.
+Release v0.5.0 established the cross-platform Tauri foundation, generated Android project and native build verification. Release v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, SHA-256 checksums, and automatic attachment of native files to the matching GitHub Release. The first planned public native distribution target is Android through RuStore. macOS direct distribution is kept as an architectural target and can precede any Mac App Store publication. iOS and additional Android stores can be added when the required distribution access is available. Windows and Linux may be evaluated later without changing the shared game implementation.
 
 Native builds must bundle the frontend locally, remain usable without loading the hosted website, and must not register the PWA service worker. Native-only integrations such as store updates, signing, lifecycle behavior, native sharing or haptics should remain isolated behind small platform boundaries. Cross-platform conventions and validation gates are documented in `docs/CROSS_PLATFORM.md`.
 
 The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace and applicationId, Kotlin package declarations, generated package paths, tests, workflows and documentation must remain aligned with it. Changing this identity requires an explicit migration decision because a different store identifier represents a different application.
 
-A successful unsigned CI APK or DMG build is a packaging-compatibility signal, not a claim that the package is signed, notarized or ready for public store distribution.
+Unsigned CI APK/DMG builds remain packaging-compatibility signals. Release APK/AAB files are signed and certificate-verified from GitHub Secrets; the current universal macOS DMG is ad-hoc signed and is not Developer ID notarized.
 
 ## AI principles
 
@@ -146,11 +146,12 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 7. Keyboard accessibility, reduced-motion support and long-game render hardening. Completed in v0.4.0.
 8. Bounded local game history, history replay and richer local AI statistics. Completed in v0.4.0.
 9. Cross-platform Tauri foundation, stable native identity and build validation for Android/macOS. Completed in v0.5.0.
-10. Android production hardening, signing, RuStore integration and publication.
-11. macOS direct-distribution packaging and signing/notarization when available.
-12. iOS packaging and distribution when the required Apple access is available.
-13. Optional room-link online multiplayer across supported platforms.
-14. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
+10. Android release signing and final APK/AAB packaging. Completed in v0.5.1.
+11. RuStore integration, validation and publication.
+12. macOS direct-distribution packaging with Developer ID signing/notarization when available.
+13. iOS packaging and distribution when the required Apple access is available.
+14. Optional room-link online multiplayer across supported platforms.
+15. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
 
 ## Repository conventions
 
