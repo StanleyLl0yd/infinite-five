@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.5.1** · Web + PWA · GitHub Pages + native release artifacts. v0.5.0 established the Tauri 2 cross-platform foundation; v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, and an ad-hoc signed universal macOS DMG. RuStore, notarized macOS, and iOS store publication remain separate distribution steps.
+Current published release: **v0.5.2** · Web + PWA · GitHub Pages + signed native release artifacts. v0.5.2 includes the repository-wide audit and refactor, hardened immutable-source release verification, a RuStore-ready Android production manifest, store/privacy documentation, signed APK/AAB packaging, and an ad-hoc signed universal macOS DMG. Android publication through RuStore is the active distribution step. Google Play and App Store remain planned until the required developer access is available; macOS Developer ID signing/notarization also remains pending Apple signing access.
 
 ## 🎯 Rules
 
@@ -262,11 +262,13 @@ Completed in **v0.5.0**: shared Tauri 2 native shell, stable `com.sl.infinitefiv
 
 Completed in **v0.5.1**: secret-backed Android release signing, verified APK/AAB packaging, universal macOS DMG packaging, release checksums, and automatic native asset attachment to GitHub Releases.
 
+Completed in **v0.5.2**: full repository audit/refactor, release-source hardening, RuStore-oriented Android manifest minimization, synchronized release metadata, publication checklist, privacy policy, application terms, and the first RuStore release candidate.
+
 Next priorities:
 
-- complete Android native integration and RuStore publication;
+- complete RuStore AAB signing enrollment, real-device release smoke testing, store media/forms, and submit v0.5.2 for moderation;
 - prepare macOS direct distribution with Developer ID signing/notarization when available;
-- add iOS packaging when the required Apple distribution access is available;
+- add Google Play and iOS/App Store distribution when the required developer access is available;
 - continue adding real-player AI regression positions and measured performance follow-up;
 - later, optional room-link online multiplayer across supported platforms without changing the core rules.
 

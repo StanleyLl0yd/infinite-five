@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.5.1** · Web + PWA · GitHub Pages + нативные release-файлы. В v0.5.0 была заложена кроссплатформенная основа Tauri 2; v0.5.1 добавляет подпись Android из GitHub Secrets, проверенную сборку APK/AAB и ad-hoc подписанный universal DMG для macOS. Публикация в RuStore, нотарифицированная macOS-сборка и публикация iOS остаются отдельными этапами.
+Текущий опубликованный релиз: **v0.5.2** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.2 вошли полный аудит и рефакторинг репозитория, усиленная проверка неизменяемого release-исходника, минимизированный production manifest Android для RuStore, документы для публикации и конфиденциальности, подписанные APK/AAB и ad-hoc подписанный universal DMG для macOS. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
 
 ## 🎯 Правила
 
@@ -262,11 +262,13 @@ Push и pull request автоматически проходят GitHub Actions:
 
 В **v0.5.1** завершены: подпись Android из GitHub Secrets, проверенная release-сборка APK/AAB, universal DMG для macOS, checksums и автоматическое добавление нативных файлов в GitHub Release.
 
+В **v0.5.2** завершены: полный аудит/рефакторинг репозитория, усиление release-source verification, минимизация Android manifest для RuStore, синхронизация release-метаданных, checklist публикации, политика конфиденциальности, пользовательские условия и первый RuStore release candidate.
+
 Следующие приоритеты:
 
-- завершить Android native-интеграции и публикацию в RuStore;
+- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.5.2 на модерацию;
 - подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;
-- добавить iOS-упаковку по мере появления необходимого Apple-доступа;
+- добавить Google Play и iOS/App Store после появления необходимого developer-доступа;
 - продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;
 - позже — опциональный онлайн-режим по ссылке на комнату между поддерживаемыми платформами без изменения базовых правил.
 

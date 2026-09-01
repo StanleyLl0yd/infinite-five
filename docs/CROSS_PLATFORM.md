@@ -2,7 +2,7 @@
 
 Infinite Five keeps one TypeScript/Vite game implementation and uses Tauri 2 as the native application shell. The browser/PWA build remains a first-class target; native packaging must reuse the same game rules, AI, rendering, replay, history and localization code rather than creating platform-specific game engines.
 
-Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 adds the native release pipeline: Android APK/AAB files are signed from GitHub Secrets and verified before publication, while macOS receives an ad-hoc signed universal DMG. RuStore, Developer ID notarization and iOS store publication remain separate distribution steps.
+Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardens release-source verification, minimizes the production Android manifest for RuStore, synchronizes version metadata, and adds the store publication/privacy package. RuStore submission is now the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
 
 ## Target model
 
@@ -63,7 +63,7 @@ Android platform files are generated under `src-tauri/gen/android`. Tauri icons 
 
 Android is the first planned native distribution target. The production application should be a self-contained APK/AAB with bundled frontend assets and offline gameplay. Its fixed RuStore application identity is `com.sl.infinitefive`.
 
-Before a RuStore release, add only the native integrations that are actually needed. Expected items are Android lifecycle/back handling, native sharing and haptics, release signing, store-safe versioning and the RuStore update flow. RuStore-specific SDK access should be isolated in an Android/Kotlin Tauri plugin so the shared TypeScript game remains store-neutral.
+For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript game remains store-neutral.
 
 Release APKs and AABs are produced only from the tagged release source. The APK uses the application-signing alias. The AAB uses the upload-key alias expected by the store workflow. Both aliases may live in the same Java keystore, while keeping the logical keys separate is preferred. The release workflow verifies certificate SHA-256 fingerprints before building and verifies the resulting APK/AAB signatures before publishing artifacts.
 
@@ -86,7 +86,7 @@ If the initial keystore contains only one suitable key, the app and upload alias
 
 macOS is a supported native target in the architecture even if it is not the first public native release target. Direct distribution can use a Tauri-generated application bundle/DMG without relying on the Mac App Store. The canonical bundle identity is `com.sl.infinitefive`.
 
-Release v0.5.1 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
+Release v0.5.2 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
 When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
 
