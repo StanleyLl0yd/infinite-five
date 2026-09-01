@@ -1,0 +1,91 @@
+name: Release Finalize
+
+on:
+  push:
+    branches: [release/v0.5.1-native-artifacts]
+    paths:
+      - .github/workflows/release-finalize.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Update release documentation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              'README.md': [
+                  ('source-0.5.0-16A34A', 'source-0.5.1-16A34A'),
+                  ('Current published release: **v0.5.0** · Web + PWA · GitHub Pages. v0.5.0 also establishes the Tauri 2 cross-platform foundation and reproducible native package validation; it does not claim a signed Android, macOS, or iOS store release.',
+                   'Current published release: **v0.5.1** · Web + PWA · GitHub Pages + native release artifacts. v0.5.0 established the Tauri 2 cross-platform foundation; v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, and an ad-hoc signed universal macOS DMG. RuStore, notarized macOS, and iOS store publication remain separate distribution steps.'),
+                  ('- shared Tauri 2 shell for Android and macOS package validation without forking the game core.',
+                   '- shared Tauri 2 shell for Android and macOS package validation without forking the game core;\n- signed Android APK/AAB release packaging from GitHub Secrets with certificate and package-identity verification;\n- universal macOS DMG release packaging with ad-hoc signing until Developer ID signing/notarization is available.'),
+                  ('The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.',
+                   'The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.'),
+                  ('A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility; signed public distribution remains a separate release-channel step.',
+                   'A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility. Release packaging additionally verifies Android signatures and `com.sl.infinitefive`, produces signed APK/AAB files plus an ad-hoc signed universal macOS DMG, generates SHA-256 checksums, and attaches the files to the matching GitHub Release.'),
+                  ('Completed in **v0.5.0**: shared Tauri 2 native shell, stable `com.sl.infinitefive` application identity, generated Android project, native identity regression coverage, and Android/macOS package-build validation.\n\nNext priorities:\n\n- harden Android packaging, release signing, native integration, and RuStore publication;',
+                   'Completed in **v0.5.0**: shared Tauri 2 native shell, stable `com.sl.infinitefive` application identity, generated Android project, native identity regression coverage, and Android/macOS package-build validation.\n\nCompleted in **v0.5.1**: secret-backed Android release signing, verified APK/AAB packaging, universal macOS DMG packaging, release checksums, and automatic native asset attachment to GitHub Releases.\n\nNext priorities:\n\n- complete Android native integration and RuStore publication;')
+              ],
+              'README_RU.md': [
+                  ('source-0.5.0-16A34A', 'source-0.5.1-16A34A'),
+                  ('Текущий опубликованный релиз: **v0.5.0** · Web + PWA · GitHub Pages. В v0.5.0 также зафиксирована кроссплатформенная основа Tauri 2 и воспроизводимая проверка нативных пакетов; это не означает публикацию подписанного Android-, macOS- или iOS-приложения в магазине.',
+                   'Текущий опубликованный релиз: **v0.5.1** · Web + PWA · GitHub Pages + нативные release-файлы. В v0.5.0 была заложена кроссплатформенная основа Tauri 2; v0.5.1 добавляет подпись Android из GitHub Secrets, проверенную сборку APK/AAB и ad-hoc подписанный universal DMG для macOS. Публикация в RuStore, нотарифицированная macOS-сборка и публикация iOS остаются отдельными этапами.'),
+                  ('- общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра.',
+                   '- общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра;\n- release-сборка подписанных Android APK/AAB из GitHub Secrets с проверкой сертификата и Application ID;\n- universal DMG для macOS с ad-hoc подписью до появления Developer ID signing/notarization.'),
+                  ('Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Kotlin/Swift/Rust-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры и AI остаются общими.',
+                   'Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift/Rust-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры и AI остаются общими.'),
+                  ('Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки; подпись и публичная публикация остаются отдельным этапом канала распространения.',
+                   'Отдельный усиленный workflow повторно проверяет сборку и публикует GitHub Pages после изменений в `main`. Нативные package checks подтверждают совместимость упаковки. Release workflow дополнительно проверяет подписи Android и `com.sl.infinitefive`, собирает подписанные APK/AAB и ad-hoc подписанный universal DMG, формирует SHA-256 checksums и прикладывает файлы к соответствующему GitHub Release.'),
+                  ('В **v0.5.0** завершены: общая нативная оболочка Tauri 2, стабильный идентификатор приложения `com.sl.infinitefive`, сгенерированный Android-проект, regression-проверка идентификатора и package-build проверка Android/macOS.\n\nСледующие приоритеты:\n\n- подготовить Android release signing, нативные интеграции и публикацию в RuStore;',
+                   'В **v0.5.0** завершены: общая нативная оболочка Tauri 2, стабильный идентификатор приложения `com.sl.infinitefive`, сгенерированный Android-проект, regression-проверка идентификатора и package-build проверка Android/macOS.\n\nВ **v0.5.1** завершены: подпись Android из GitHub Secrets, проверенная release-сборка APK/AAB, universal DMG для macOS, checksums и автоматическое добавление нативных файлов в GitHub Release.\n\nСледующие приоритеты:\n\n- завершить Android native-интеграции и публикацию в RuStore;')
+              ],
+              'docs/PRODUCT.md': [
+                  ('Current published release: **v0.5.0**.', 'Current published release: **v0.5.1**.'),
+                  ('Release v0.5.0 establishes the cross-platform Tauri foundation, generated Android project and native build verification. The first planned public native distribution target is Android through RuStore.',
+                   'Release v0.5.0 established the cross-platform Tauri foundation, generated Android project and native build verification. Release v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, SHA-256 checksums, and automatic attachment of native files to the matching GitHub Release. The first planned public native distribution target is Android through RuStore.'),
+                  ('A successful unsigned CI APK or DMG build is a packaging-compatibility signal, not a claim that the package is signed, notarized or ready for public store distribution.',
+                   'Unsigned CI APK/DMG builds remain packaging-compatibility signals. Release APK/AAB files are signed and certificate-verified from GitHub Secrets; the current universal macOS DMG is ad-hoc signed and is not Developer ID notarized.'),
+                  ('10. Android production hardening, signing, RuStore integration and publication.\n11. macOS direct-distribution packaging and signing/notarization when available.',
+                   '10. Android release signing and final APK/AAB packaging. Completed in v0.5.1.\n11. RuStore integration, validation and publication.\n12. macOS direct-distribution packaging with Developer ID signing/notarization when available.'),
+                  ('12. iOS packaging and distribution when the required Apple access is available.\n13. Optional room-link online multiplayer across supported platforms.\n14. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.',
+                   '13. iOS packaging and distribution when the required Apple access is available.\n14. Optional room-link online multiplayer across supported platforms.\n15. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.')
+              ],
+              'docs/CROSS_PLATFORM.md': [
+                  ('Release v0.5.0 establishes the Tauri cross-platform foundation and native build validation. It does not by itself mean that Android, macOS or iOS has been published through a store or signed public distribution channel.',
+                   'Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 adds the native release pipeline: Android APK/AAB files are signed from GitHub Secrets and verified before publication, while macOS receives an ad-hoc signed universal DMG. RuStore, Developer ID notarization and iOS store publication remain separate distribution steps.'),
+                  ('Signing material belongs in the release environment or repository secrets, never in Git. A successful unsigned CI package build proves packaging compatibility but is not a store-ready signed release.',
+                   'Signing material belongs in GitHub Secrets or the release environment, never in Git. The release workflow restores the keystore only on an ephemeral runner, verifies certificate fingerprints, signs the APK and AAB, validates `com.sl.infinitefive`, and attaches the verified files plus SHA-256 checksums to the matching GitHub Release. The APK uses the application-signing alias and the AAB uses the upload-key alias; these may currently resolve to the same key and can be separated later without changing the application identity.'),
+                  ('Unsigned or ad-hoc builds are suitable only for development and early technical testing. A normal public direct-distribution release should later use Apple Developer ID signing and notarization when the required Apple developer access is available.',
+                   'Release v0.5.1 produces an ad-hoc signed universal DMG suitable for direct technical distribution. Gatekeeper may require an explicit user override. A normal public direct-distribution release should later use Apple Developer ID signing and notarization when the required Apple developer access is available.')
+              ]
+          }
+
+          for file_name, pairs in replacements.items():
+              path = Path(file_name)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'Missing expected text in {file_name}: {old[:80]}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Remove temporary workflow and commit
+        run: |
+          git rm .github/workflows/release-finalize.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md README_RU.md docs/PRODUCT.md docs/CROSS_PLATFORM.md
+          git commit -m "Finalize v0.5.1 release documentation"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
