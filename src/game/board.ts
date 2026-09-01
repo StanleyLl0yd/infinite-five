@@ -3,11 +3,11 @@ import type { Mark, Move } from './types';
 const keyOf = (x: number, y: number) => `${x},${y}`;
 
 export class Board {
-  private readonly cells = new Map<string, Mark>();
+  private readonly cells = new Map<string, Move>();
   private readonly moves: Move[] = [];
 
   get(x: number, y: number): Mark | undefined {
-    return this.cells.get(keyOf(x, y));
+    return this.cells.get(keyOf(x, y))?.mark;
   }
 
   place(x: number, y: number, mark: Mark): boolean {
@@ -16,8 +16,9 @@ export class Board {
       return false;
     }
 
-    this.cells.set(key, mark);
-    this.moves.push({ x, y, mark });
+    const move = { x, y, mark };
+    this.cells.set(key, move);
+    this.moves.push(move);
     return true;
   }
 
@@ -49,8 +50,8 @@ export class Board {
 
     for (let y = top; y <= bottom; y += 1) {
       for (let x = left; x <= right; x += 1) {
-        const mark = this.cells.get(keyOf(x, y));
-        if (mark) visible.push({ x, y, mark });
+        const move = this.cells.get(keyOf(x, y));
+        if (move) visible.push(move);
       }
     }
 
