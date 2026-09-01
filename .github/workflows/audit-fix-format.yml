@@ -33,15 +33,13 @@ jobs:
           from pathlib import Path
           path = Path('src/game/ai.ts')
           text = path.read_text()
-          old = """  const ranked = candidates
-          .map((position) => ({ position, score: rankScore(board, position, mark) }))
-          .sort((a, b) => b.score - a.score);"""
-          new = """  const ranked = candidates
-            .map((position) => ({ position, score: rankScore(board, position, mark) }))
-            .sort((a, b) => b.score - a.score);"""
-          if text.count(old) != 1:
+          old_map = "\n  .map((position) => ({ position, score: rankScore(board, position, mark) }))"
+          old_sort = "\n  .sort((a, b) => b.score - a.score);"
+          if text.count(old_map) != 1 or text.count(old_sort) != 1:
               raise SystemExit('Easy AI indentation changed unexpectedly')
-          path.write_text(text.replace(old, new))
+          text = text.replace(old_map, "\n    .map((position) => ({ position, score: rankScore(board, position, mark) }))")
+          text = text.replace(old_sort, "\n    .sort((a, b) => b.score - a.score);")
+          path.write_text(text)
           PY
 
       - name: Install dependencies
