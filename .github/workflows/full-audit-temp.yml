@@ -77,9 +77,9 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm install --no-save --package-lock=false --ignore-scripts typescript@5.9.3 >/tmp/audit-typescript-install.log 2>&1
-          echo "typescript_compat_install_exit=$?" >> audit-report/tool-exits.txt
-          npx --yes knip@5.64.0 --reporter compact > audit-report/knip.txt 2>&1
+          npm install --no-save --package-lock=false --ignore-scripts typescript@5.9.3 knip@5.64.0 >/tmp/audit-knip-install.log 2>&1
+          echo "knip_install_exit=$?" >> audit-report/tool-exits.txt
+          ./node_modules/.bin/knip --reporter compact > audit-report/knip.txt 2>&1
           echo "knip_exit=$?" >> audit-report/tool-exits.txt
           cat audit-report/knip.txt
           exit 0
@@ -158,7 +158,9 @@ jobs:
             for (const [name, version] of entries) console.log(`${name} ${version}`);
           }
           NODE
+          npm ls glob --all > audit-report/npm-glob-tree.txt 2>&1 || true
           cat audit-report/npm-dependencies.txt
+          cat audit-report/npm-glob-tree.txt
 
       - name: Upload audit report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
