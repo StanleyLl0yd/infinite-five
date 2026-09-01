@@ -24,7 +24,17 @@ function collectTextFiles(path: string): string[] {
   return files;
 }
 
-describe('native application identity', () => {
+describe('native application configuration', () => {
+  it('keeps release versions aligned', () => {
+    const packageJson = JSON.parse(read('package.json')) as { version?: string };
+    const config = JSON.parse(read('src-tauri/tauri.conf.json')) as { version?: string };
+    const cargo = read('src-tauri/Cargo.toml');
+
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(config.version).toBe(packageJson.version);
+    expect(cargo).toContain(`version = "${packageJson.version}"`);
+  });
+
   it('keeps Tauri and generated Android packages aligned', () => {
     const config = JSON.parse(read('src-tauri/tauri.conf.json')) as { identifier?: string };
     expect(config.identifier).toBe(APP_ID);
@@ -46,6 +56,17 @@ describe('native application identity', () => {
     for (const file of collectTextFiles(androidRoot)) {
       expect(read(file)).not.toContain(OLD_APP_ID);
     }
+  });
+
+  it('keeps release permissions minimal', () => {
+    const releaseManifest = read(`${androidRoot}/app/src/main/AndroidManifest.xml`);
+    const debugManifest = read(`${androidRoot}/app/src/debug/AndroidManifest.xml`);
+
+    expect(releaseManifest).toContain('android.permission.VIBRATE');
+    expect(releaseManifest).not.toContain('android.permission.INTERNET');
+    expect(releaseManifest).not.toContain('android.software.leanback');
+    expect(releaseManifest).not.toContain('android.intent.category.LEANBACK_LAUNCHER');
+    expect(debugManifest).toContain('android.permission.INTERNET');
   });
 
   it('keeps release signing external to the repository', () => {
