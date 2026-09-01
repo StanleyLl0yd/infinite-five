@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - package.json
+      - .github/workflows/native-release.yml
   workflow_dispatch:
     inputs:
       tag:
@@ -240,12 +241,18 @@ jobs:
 
       - name: Verify and stage macOS artifact
         run: |
-          APP="$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -type d -name '*.app' -print -quit)"
           DMG="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -type f -name '*.dmg' -print -quit)"
-          test -d "$APP"
           test -f "$DMG"
+          MOUNT_POINT="$RUNNER_TEMP/infinite-five-dmg"
+          mkdir -p "$MOUNT_POINT"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_POINT"
+          trap 'hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true' EXIT
+          APP="$(find "$MOUNT_POINT" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -d "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign -dv --verbose=4 "$APP" 2>&1 | grep -F 'Identifier=com.sl.infinitefive'
+          hdiutil detach "$MOUNT_POINT"
+          trap - EXIT
           mkdir -p release
           cp "$DMG" "release/Infinite-Five-v${VERSION}-macOS-universal.dmg"
 
