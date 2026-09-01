@@ -1,0 +1,144 @@
+name: Full Audit Temp
+
+on:
+  push:
+    branches:
+      - audit/full-refactor-v0.5.4
+    paths:
+      - .github/workflows/full-audit-temp.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Baseline verification
+        run: |
+          npm audit --audit-level=high
+          npm test
+          npm run build
+
+      - name: Collect repository statistics
+        shell: bash
+        run: |
+          mkdir -p audit-report
+          python3 - <<'PY' > audit-report/stats.txt
+          from pathlib import Path
+
+          roots = [Path('src'), Path('src-tauri/src'), Path('scripts')]
+          source_suffixes = {'.ts', '.css', '.rs', '.sh'}
+          files = []
+          lines = 0
+          nonblank = 0
+          for root in roots:
+              if not root.exists():
+                  continue
+              for path in root.rglob('*'):
+                  if path.is_file() and path.suffix in source_suffixes:
+                      text = path.read_text(encoding='utf-8')
+                      files.append(path)
+                      split = text.splitlines()
+                      lines += len(split)
+                      nonblank += sum(bool(line.strip()) for line in split)
+          tests = list(Path('src').rglob('*.test.ts'))
+          print(f'source_files={len(files)}')
+          print(f'source_lines={lines}')
+          print(f'source_nonblank_lines={nonblank}')
+          print(f'test_files={len(tests)}')
+          print('largest_source_files:')
+          for path in sorted(files, key=lambda p: p.stat().st_size, reverse=True)[:15]:
+              print(f'{path.stat().st_size:7d} {path}')
+          PY
+          du -sk dist | awk '{print "dist_kib=" $1}' >> audit-report/stats.txt
+          git ls-files | wc -l | awk '{print "tracked_files=" $1}' >> audit-report/stats.txt
+          cat audit-report/stats.txt
+
+      - name: Detect unused code and dependencies
+        shell: bash
+        run: |
+          set +e
+          npx --yes knip@5.64.0 --reporter compact > audit-report/knip.txt 2>&1
+          echo "knip_exit=$?" >> audit-report/tool-exits.txt
+          cat audit-report/knip.txt
+          exit 0
+
+      - name: Detect circular dependencies
+        shell: bash
+        run: |
+          set +e
+          npx --yes madge@8.0.0 --circular --extensions ts src > audit-report/madge.txt 2>&1
+          echo "madge_exit=$?" >> audit-report/tool-exits.txt
+          cat audit-report/madge.txt
+          exit 0
+
+      - name: Detect duplicate code
+        shell: bash
+        run: |
+          set +e
+          npx --yes jscpd@4.0.5 src src-tauri/src scripts --min-lines 5 --min-tokens 50 --reporters console,json --output audit-report/jscpd > audit-report/jscpd-console.txt 2>&1
+          echo "jscpd_exit=$?" >> audit-report/tool-exits.txt
+          cat audit-report/jscpd-console.txt
+          exit 0
+
+      - name: Search stale markers and suspicious leftovers
+        shell: bash
+        run: |
+          set +e
+          grep -RInE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=target --exclude=package-lock.json '(TODO|FIXME|XXX|HACK|deprecated|legacy)' . > audit-report/markers.txt
+          echo "markers_exit=$?" >> audit-report/tool-exits.txt
+          cat audit-report/markers.txt || true
+          exit 0
+
+      - name: Rust metadata and lint
+        shell: bash
+        run: |
+          set +e
+          cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 > audit-report/cargo-metadata.json 2> audit-report/cargo-metadata.err
+          echo "cargo_metadata_exit=$?" >> audit-report/tool-exits.txt
+          cargo tree --manifest-path src-tauri/Cargo.toml --duplicates > audit-report/cargo-duplicates.txt 2>&1
+          echo "cargo_tree_duplicates_exit=$?" >> audit-report/tool-exits.txt
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings > audit-report/cargo-clippy.txt 2>&1
+          echo "cargo_clippy_exit=$?" >> audit-report/tool-exits.txt
+          cat audit-report/cargo-clippy.txt
+          exit 0
+
+      - name: Record dependency surface
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE' > audit-report/npm-dependencies.txt
+          import pkg from './package.json' with { type: 'json' };
+          for (const section of ['dependencies', 'devDependencies']) {
+            const entries = Object.entries(pkg[section] ?? {});
+            console.log(`${section}=${entries.length}`);
+            for (const [name, version] of entries) console.log(`${name} ${version}`);
+          }
+          NODE
+          cat audit-report/npm-dependencies.txt
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: full-audit-report
+          path: audit-report
+          if-no-files-found: error
+          retention-days: 14
