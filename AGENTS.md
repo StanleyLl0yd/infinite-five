@@ -43,3 +43,155 @@
 - Keep repository history tidy: close superseded automated pull requests and remove branches after their work is merged or intentionally abandoned; keep only active work branches.
 - After every release, review and update all repository text files so they accurately reflect the released state.
 - Preserve the established formatting and visual presentation of text files during release updates; add, change, or remove formatting only when there is a compelling or urgent need.
+
+## Mandatory full-audit and deep-refactoring rule
+
+When a task requests a full repository audit, cleanup, optimization, or deep refactor, apply the following rules to the entire repository rather than only recently changed files.
+
+### Goal and invariants
+
+- Minimize necessary complexity, code volume, duplication, and maintenance cost while preserving 100% of current functionality, behavior, UI/UX, public interfaces, data formats, edge-case behavior, and documented capabilities.
+- Do not pursue line-count reduction at the expense of clarity. This is not code golf.
+- If code can be proven unnecessary, remove it. If it can be simplified, simplify it. If two implementations can be safely unified, unify them. If a change merely makes the code different without making it objectively smaller, clearer, safer, or faster, do not make it.
+- When uncertain whether code is truly unused, preserve it until its removal is justified by architecture, framework conventions, configuration, build behavior, tests, and call paths.
+
+### Repository-wide scope
+
+Inspect all relevant repository content before refactoring:
+
+- application source code;
+- tests and test utilities;
+- configuration;
+- build scripts and generated-build integration points;
+- CI/CD and release workflows;
+- dependencies and devDependencies;
+- documentation;
+- assets and resources;
+- platform-specific/native code;
+- directory structure and obsolete files.
+
+Establish the actual architecture and current feature set before deleting or consolidating anything.
+
+### Removal candidates
+
+Actively look for and safely remove:
+
+- dead or unreachable code;
+- unused functions, classes, methods, variables, constants, types, interfaces, imports, exports, and files;
+- legacy code that no longer participates in the application;
+- temporary workarounds that are no longer needed;
+- duplicate or near-duplicate implementations;
+- unnecessary abstraction layers;
+- redundant wrappers and helpers;
+- redundant data transformations;
+- repeated validation of already validated state;
+- defensive checks made unnecessary by types, architecture, or earlier validation;
+- repeated checks of the same condition;
+- obsolete or unnecessary fallbacks;
+- unused dependencies and devDependencies;
+- obsolete configuration options;
+- unnecessary feature flags;
+- commented-out old code;
+- obsolete TODO/FIXME items;
+- unused assets and resources.
+
+Do not treat a failed textual search as proof that code is unused. Check indirect use through callbacks, events, framework conventions, dynamic loading, reflection-like mechanisms, configuration, build systems, generated code, native integration, and platform-specific entry points.
+
+### Simplification candidates
+
+Look for opportunities to:
+
+- shorten code without reducing readability;
+- simplify control flow;
+- reduce state and branching;
+- merge modules or helpers that no longer justify separate layers;
+- replace custom logic with standard language/framework/library capabilities where that is objectively simpler;
+- remove unnecessary intermediate objects, DTO/model conversions, copies, loops, passes, and transformations;
+- centralize genuinely shared logic only when doing so reduces total code and complexity;
+- reduce component coupling;
+- remove repeated business logic;
+- collapse wrapper-to-wrapper call chains;
+- remove redundant try/catch blocks when they add no useful behavior.
+
+### Architecture review
+
+Verify that:
+
+- historical components or layers are still necessary;
+- abstractions are justified by current use rather than hypothetical future needs;
+- classes or modules cannot be safely deleted or merged;
+- the design is not prematurely generalized;
+- there is no architecture maintained only for possible future features;
+- implementation complexity matches the actual complexity of the product.
+
+Do not perform a large rewrite solely because another architecture looks cleaner.
+
+### Performance review
+
+Optimize only where the benefit is practical, measurable, or obvious. Look for:
+
+- repeated computations;
+- repeated queries or reads;
+- avoidable allocations;
+- unnecessary re-renders, rebuilds, or recomputations;
+- repeated parsing or conversion of the same data;
+- inefficient data structures for current access patterns;
+- operations that can safely be performed once instead of repeatedly.
+
+Do not introduce readability regressions for insignificant micro-optimizations.
+
+### Dependency review
+
+- Determine which dependencies are actually used.
+- Remove unused dependencies.
+- Remove duplicate libraries serving the same purpose when one is sufficient.
+- Replace a dependency with standard or very small local code only when that objectively reduces project complexity and maintenance burden.
+- Do not replace a mature, well-maintained library with custom code without a strong reason.
+
+### Functional safety constraints
+
+The refactored application must behave the same as before. Do not:
+
+- remove user-facing features;
+- change existing UX;
+- change business logic;
+- change public APIs or contracts without absolute necessity;
+- change stored or shared data formats;
+- change edge-case behavior intentionally;
+- reduce functionality merely to shrink the codebase;
+- add unrelated features;
+- add abstractions merely to satisfy generic best practices.
+
+### Required workflow
+
+1. Inspect the full repository and map its architecture and existing features.
+2. Build an internal candidate list for removal, consolidation, simplification, and performance improvement.
+3. For every removal, verify direct and indirect usage before deleting it.
+4. Apply changes in small, coherent logical groups.
+5. After each meaningful group, run the relevant available tests, lint, typecheck, builds, and static analysis.
+6. If critical behavior lacks sufficient coverage for a safe change, add the smallest regression test that captures current behavior before refactoring it.
+7. After the first refactoring pass, perform a second full pass over the already-refactored repository to find remaining dead code, duplication, unnecessary abstraction, redundant checks, unused dependencies, and legacy residue.
+8. Finish with the full available project verification: clean build, complete test suite, lint, typecheck, dependency/security checks, and project-specific validation.
+
+### Comments
+
+- Follow the repository comment rules.
+- Do not add comments that narrate obvious code.
+- Remove stale or useless comments.
+- Keep comments only when they explain a non-obvious reason, constraint, or important contract.
+
+### Required final report
+
+For a completed full audit/refactor, report:
+
+1. what was removed;
+2. what was merged or consolidated;
+3. what was simplified;
+4. which dependencies were removed;
+5. which possible legacy components were identified;
+6. what was intentionally left unchanged and why;
+7. which tests, builds, lint, typecheck, audits, and other checks were run;
+8. which areas could not be safely optimized without more information or stronger tests;
+9. trustworthy before/after statistics when available, including file count, source lines, dependency count, test count, and production/build artifact size.
+
+A full-audit task is not complete if it only produces recommendations. Safe improvements must be implemented directly in the project.
