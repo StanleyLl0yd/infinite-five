@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.5.4-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.5.2** · Web + PWA · GitHub Pages + signed native release artifacts. v0.5.2 includes the repository-wide audit and refactor, hardened immutable-source release verification, a RuStore-ready Android production manifest, store/privacy documentation, signed APK/AAB packaging, and an ad-hoc signed universal macOS DMG. Android publication through RuStore is the active distribution step. Google Play and App Store remain planned until the required developer access is available; macOS Developer ID signing/notarization also remains pending Apple signing access.
+Current published release: **v0.5.4** · Web + PWA · GitHub Pages + signed native release artifacts. v0.5.3 added the localized About dialog and synchronized application version presentation. v0.5.4 hardens Android for current Google Play requirements with `minSdk 26`, `targetSdk 36`, `compileSdk 36`, pinned NDK r29, an AAB-first signed release flow, ARM-only release packages (`arm64-v8a` + `armeabi-v7a`), and enforced 16 KB page-size compatibility checks. Android publication through RuStore remains the active distribution step. Google Play and App Store remain planned until the required developer access is available; macOS Developer ID signing/notarization also remains pending Apple signing access.
 
 ## 🎯 Rules
 
@@ -66,7 +66,8 @@ Current published release: **v0.5.2** · Web + PWA · GitHub Pages + signed nati
 - installable PWA with offline readiness and in-app update notification;
 - automatic hardened GitHub Pages deployment;
 - shared Tauri 2 shell for Android and macOS package validation without forking the game core;
-- signed Android APK/AAB release packaging from GitHub Secrets with certificate and package-identity verification;
+- signed Android AAB-first release packaging from GitHub Secrets with certificate/package verification, `arm64-v8a` + `armeabi-v7a`, and enforced 16 KB native compatibility;
+- supplemental signed APK packaging for direct installation and GitHub releases;
 - universal macOS DMG release packaging with ad-hoc signing until Developer ID signing/notarization is available.
 
 ## 🕹 Controls
@@ -228,12 +229,12 @@ Pushes and pull requests are verified by GitHub Actions with:
 - Vitest unit and regression tests for board state, history, sharing, locales, native identity, AI tactics, and AI Lab smoke scenarios;
 - a 5,000-move bounded-render query regression;
 - TypeScript validation and production build;
-- Android APK and universal macOS DMG package-build verification for native changes;
+- Android AAB/APK and universal macOS DMG package-build verification for native changes;
 - CodeQL analysis with `security-extended` queries;
 - Semgrep security and secret rules;
 - Gitleaks full-history secret scanning.
 
-A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility. Release packaging additionally verifies Android signatures and `com.sl.infinitefive`, produces signed APK/AAB files plus an ad-hoc signed universal macOS DMG, generates SHA-256 checksums, and attaches the files to the matching GitHub Release.
+A separate hardened workflow rebuilds, rechecks, and publishes GitHub Pages after changes land on `main`. Native package checks validate packaging compatibility. Release packaging additionally verifies Android signatures, `com.sl.infinitefive`, SDK levels, release ABIs, ELF 16 KB LOAD alignment, APK 16 KB zip alignment, and AAB `PAGE_ALIGNMENT_16K`; it publishes the signed AAB as the primary Android artifact, a supplemental signed APK, an ad-hoc signed universal macOS DMG, and SHA-256 checksums to the matching GitHub Release.
 
 ## 🔐 Security
 
@@ -264,9 +265,13 @@ Completed in **v0.5.1**: secret-backed Android release signing, verified APK/AAB
 
 Completed in **v0.5.2**: full repository audit/refactor, release-source hardening, RuStore-oriented Android manifest minimization, synchronized release metadata, publication checklist, privacy policy, application terms, and the first RuStore release candidate.
 
+Completed in **v0.5.3**: compact localized About UI with application version, developer, GitHub, privacy-policy and terms links.
+
+Completed in **v0.5.4**: Android 8.0+ baseline (`minSdk 26`), API 36 target/compile baseline, pinned NDK r29, AAB-first signed releases, ARM-only production ABI set, and mandatory 16 KB ELF/APK/AAB compatibility gates.
+
 Next priorities:
 
-- complete RuStore AAB signing enrollment, real-device release smoke testing, store media/forms, and submit v0.5.2 for moderation;
+- complete RuStore AAB signing enrollment, real-device release smoke testing, store media/forms, and submit v0.5.4 for moderation;
 - prepare macOS direct distribution with Developer ID signing/notarization when available;
 - add Google Play and iOS/App Store distribution when the required developer access is available;
 - continue adding real-player AI regression positions and measured performance follow-up;

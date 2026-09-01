@@ -4,7 +4,7 @@
 
 Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The TypeScript/Vite implementation is the shared game implementation for the browser and native application shells so platform expansion does not create separate game engines.
 
-Current published release: **v0.5.2**.
+Current published release: **v0.5.4**.
 
 ## Core rules
 
@@ -59,13 +59,13 @@ Online multiplayer remains outside the current release and may be added later wi
 
 The browser/PWA remains a first-class target. Native applications use Tauri 2 around the same compiled frontend and game core rather than separate Kotlin, Swift or desktop implementations.
 
-Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 adds the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
+Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 added the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Release v0.5.3 added a compact localized About surface with version/developer/legal links. Release v0.5.4 hardens Android to `minSdk 26`, target/compile API 36, pinned NDK r29, an AAB-first signed release flow, ARM-only production ABIs (`arm64-v8a` + `armeabi-v7a`), and mandatory 16 KB ELF/APK/AAB compatibility verification. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
 
 Native builds must bundle the frontend locally, remain usable without loading the hosted website, and must not register the PWA service worker. Native-only integrations such as store updates, signing, lifecycle behavior, native sharing or haptics should remain isolated behind small platform boundaries. Cross-platform conventions and validation gates are documented in `docs/CROSS_PLATFORM.md`.
 
 The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace and applicationId, Kotlin package declarations, generated package paths, tests, workflows and documentation must remain aligned with it. Changing this identity requires an explicit migration decision because a different store identifier represents a different application.
 
-Unsigned CI APK/DMG builds remain packaging-compatibility signals. Release APK/AAB files are signed and certificate-verified from GitHub Secrets; the current universal macOS DMG is ad-hoc signed and is not Developer ID notarized.
+Unsigned CI AAB/APK/DMG builds remain packaging-compatibility signals. Release Android packages are signed and certificate-verified from GitHub Secrets, with the AAB treated as the primary store artifact and the APK as supplemental direct-install output. The Android pipeline also verifies the release ABI set and 16 KB native packaging compatibility. The current universal macOS DMG is ad-hoc signed and is not Developer ID notarized.
 
 ## AI principles
 
@@ -148,11 +148,13 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 9. Cross-platform Tauri foundation, stable native identity and build validation for Android/macOS. Completed in v0.5.0.
 10. Android release signing and final APK/AAB packaging. Completed in v0.5.1.
 11. RuStore release preparation, Android manifest hardening, privacy/terms and publication package. Completed in v0.5.2.
-12. RuStore console signing enrollment, real-device validation and publication.
-13. macOS direct-distribution packaging with Developer ID signing/notarization when available.
-14. Google Play and iOS/App Store distribution when the required developer access is available.
-15. Optional room-link online multiplayer across supported platforms.
-16. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
+12. Localized About UI with version/developer/legal links. Completed in v0.5.3.
+13. Android API 26/36 baseline, pinned NDK r29, AAB-first release packaging, ARM-only production ABIs and 16 KB compatibility gates. Completed in v0.5.4.
+14. RuStore console signing enrollment, real-device validation and publication.
+15. macOS direct-distribution packaging with Developer ID signing/notarization when available.
+16. Google Play and iOS/App Store distribution when the required developer access is available.
+17. Optional room-link online multiplayer across supported platforms.
+18. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
 
 ## Repository conventions
 
