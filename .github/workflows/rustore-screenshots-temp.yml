@@ -1,0 +1,150 @@
+name: RuStore Screenshots Temp
+
+on:
+  push:
+    branches:
+      - chore/rustore-screenshots-temp
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Capture signed v0.5.2 in Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            mkdir -p rustore-screenshots/raw rustore-screenshots/ui
+            gh release download v0.5.2 --repo "$GITHUB_REPOSITORY" --pattern 'Infinite-Five-v0.5.2-Android.apk' --dir .
+            APK='Infinite-Five-v0.5.2-Android.apk'
+            adb install -r "$APK"
+            adb shell settings put global policy_control immersive.full='*' || true
+            adb shell wm size 1080x1920
+            adb shell wm density 420
+            adb shell am force-stop com.sl.infinitefive
+            adb shell monkey -p com.sl.infinitefive -c android.intent.category.LAUNCHER 1 >/dev/null
+            sleep 4
+
+            dump_ui() {
+              local name="$1"
+              adb shell uiautomator dump /sdcard/window.xml >/dev/null 2>&1 || true
+              adb pull /sdcard/window.xml "rustore-screenshots/ui/${name}.xml" >/dev/null 2>&1 || true
+            }
+
+            shot() {
+              local name="$1"
+              adb exec-out screencap -p > "rustore-screenshots/raw/${name}.png"
+              dump_ui "$name"
+            }
+
+            tap_text() {
+              local needle="$1"
+              adb shell uiautomator dump /sdcard/window.xml >/dev/null 2>&1 || true
+              adb pull /sdcard/window.xml /tmp/window.xml >/dev/null 2>&1 || true
+              NEEDLE="$needle" python3 - <<'PY'
+            import os, re, subprocess, sys, xml.etree.ElementTree as ET
+            needle = os.environ['NEEDLE'].casefold()
+            try:
+                root = ET.parse('/tmp/window.xml').getroot()
+            except Exception:
+                sys.exit(2)
+            for node in root.iter('node'):
+                hay = ' '.join((node.attrib.get('text',''), node.attrib.get('content-desc',''))).casefold()
+                if needle in hay:
+                    m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds',''))
+                    if m:
+                        x1,y1,x2,y2 = map(int, m.groups())
+                        subprocess.run(['adb','shell','input','tap',str((x1+x2)//2),str((y1+y2)//2)], check=True)
+                        sys.exit(0)
+            sys.exit(1)
+            PY
+            }
+
+            shot 01-home-en
+
+            # Switch the actual app UI to Russian when the WebView accessibility tree exposes controls.
+            tap_text 'Settings' || adb shell input tap 940 95
+            sleep 1
+            dump_ui settings-en
+            tap_text 'System / browser' || adb shell input tap 540 950
+            sleep 1
+            tap_text 'Русский' || true
+            sleep 1
+            tap_text 'Save' || adb shell input tap 800 1540
+            sleep 2
+            shot 02-home-ru
+
+            # Expert AI mid-game. Select Expert and place several real moves on the canvas.
+            tap_text 'Сложность' || true
+            tap_text 'Легко' || tap_text 'Easy' || adb shell input tap 760 360
+            sleep 1
+            tap_text 'Эксперт' || tap_text 'Expert' || adb shell input tap 760 620
+            sleep 1
+            adb shell input tap 540 1050
+            sleep 2
+            adb shell input tap 690 1050
+            sleep 2
+            adb shell input tap 540 1200
+            sleep 2
+            adb shell input tap 690 1200
+            sleep 3
+            shot 03-expert-midgame
+
+            # Start a local two-player game and create a deterministic horizontal X win.
+            tap_text 'Против компьютера' || tap_text 'Vs computer' || adb shell input tap 300 360
+            sleep 1
+            tap_text 'Два игрока' || tap_text 'Two players' || true
+            sleep 1
+            tap_text 'Новая игра' || tap_text 'New game' || adb shell input tap 1010 95
+            sleep 2
+            adb shell input tap 300 1000
+            adb shell input tap 300 1300
+            adb shell input tap 450 1000
+            adb shell input tap 450 1300
+            adb shell input tap 600 1000
+            adb shell input tap 600 1300
+            adb shell input tap 750 1000
+            adb shell input tap 750 1300
+            adb shell input tap 900 1000
+            sleep 2
+            shot 04-win-dialog
+            tap_text 'Закрыть' || tap_text 'Close' || adb shell input tap 330 1450
+            sleep 2
+            shot 05-winning-board
+
+            # Settings and local history are useful catalog screenshots and verify those screens in the release APK.
+            tap_text 'Настройки' || tap_text 'Settings' || adb shell input tap 940 95
+            sleep 2
+            shot 06-settings
+            tap_text 'Закрыть' || tap_text 'Close' || adb shell input tap 330 1540
+            sleep 1
+            tap_text 'История' || tap_text 'History' || adb shell input tap 895 95
+            sleep 2
+            shot 07-history
+
+            adb shell wm size > rustore-screenshots/ui/wm-size.txt
+            adb shell wm density > rustore-screenshots/ui/wm-density.txt
+            adb shell dumpsys window > rustore-screenshots/ui/window-dump.txt
+            adb shell dumpsys package com.sl.infinitefive > rustore-screenshots/ui/package-dump.txt
+
+      - name: Upload emulator screenshots
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rustore-emulator-screenshots-v0.5.2
+          path: rustore-screenshots
+          if-no-files-found: error
+          retention-days: 1
