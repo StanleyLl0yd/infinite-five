@@ -1,6 +1,6 @@
 [package]
 name = "infinite-five"
-version = "0.5.2"
+version = "0.5.3"
 description = "Infinite Five cross-platform shell"
 authors = ["StanleyLl0yd"]
 edition = "2021"
