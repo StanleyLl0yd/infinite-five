@@ -1,0 +1,21 @@
+name: Native Release Trigger
+
+on:
+  push:
+    branches: [fix/native-release-dmg-verification]
+    paths:
+      - .github/workflows/native-release-trigger.yml
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch corrected v0.5.1 native release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run native-release.yml --repo "$GITHUB_REPOSITORY" --ref fix/native-release-dmg-verification -f tag=v0.5.1
