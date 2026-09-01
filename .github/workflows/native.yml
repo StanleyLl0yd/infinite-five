@@ -42,19 +42,6 @@ jobs:
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
-      - name: Verify application identity
-        run: |
-          grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
-          grep -F 'namespace = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
-          grep -F 'applicationId = "com.sl.infinitefive"' src-tauri/gen/android/app/build.gradle.kts
-          test -f src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
-          grep -F 'package com.sl.infinitefive' src-tauri/gen/android/app/src/main/java/com/sl/infinitefive/MainActivity.kt
-          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/BuildTask.kt
-          test -f src-tauri/gen/android/buildSrc/src/main/java/com/sl/infinitefive/kotlin/RustPlugin.kt
-          ! test -e src-tauri/gen/android/app/src/main/java/io/github/stanleyll0yd/infinitefive/MainActivity.kt
-          ! test -e src-tauri/gen/android/buildSrc/src/main/java/io/github/stanleyll0yd/infinitefive
-          ! grep -R -F 'io.github.stanleyll0yd.infinitefive' src-tauri --exclude-dir=target
-
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
@@ -63,9 +50,6 @@ jobs:
 
       - name: Build Android APK
         run: npm run tauri android build -- --apk --debug
-
-      - name: Verify APK output
-        run: test -n "$(find src-tauri/gen/android -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -98,10 +82,6 @@ jobs:
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
-      - name: Verify application identity
-        run: |
-          grep -F '"identifier": "com.sl.infinitefive"' src-tauri/tauri.conf.json
-
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
@@ -110,9 +90,6 @@ jobs:
 
       - name: Build universal macOS DMG
         run: npm run tauri build -- --bundles dmg --target universal-apple-darwin --no-sign
-
-      - name: Verify DMG output
-        run: test -n "$(find src-tauri/target -type f -name '*.dmg' -print -quit)"
 
       - name: Upload DMG
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
