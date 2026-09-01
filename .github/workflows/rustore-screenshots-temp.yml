@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   screenshots:
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - name: Capture signed v0.5.2 in Android emulator
@@ -25,9 +25,9 @@ jobs:
           cores: 2
           ram-size: 4096
           disable-animations: true
-          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-metrics
           script: |
-            set -euo pipefail
+            set -eu
             mkdir -p rustore-screenshots/raw rustore-screenshots/ui
             gh release download v0.5.2 --repo "$GITHUB_REPOSITORY" --pattern 'Infinite-Five-v0.5.2-Android.apk' --dir .
             APK='Infinite-Five-v0.5.2-Android.apk'
@@ -40,19 +40,19 @@ jobs:
             sleep 4
 
             dump_ui() {
-              local name="$1"
+              name="$1"
               adb shell uiautomator dump /sdcard/window.xml >/dev/null 2>&1 || true
               adb pull /sdcard/window.xml "rustore-screenshots/ui/${name}.xml" >/dev/null 2>&1 || true
             }
 
             shot() {
-              local name="$1"
+              name="$1"
               adb exec-out screencap -p > "rustore-screenshots/raw/${name}.png"
               dump_ui "$name"
             }
 
             tap_text() {
-              local needle="$1"
+              needle="$1"
               adb shell uiautomator dump /sdcard/window.xml >/dev/null 2>&1 || true
               adb pull /sdcard/window.xml /tmp/window.xml >/dev/null 2>&1 || true
               NEEDLE="$needle" python3 - <<'PY'
@@ -76,7 +76,6 @@ jobs:
 
             shot 01-home-en
 
-            # Switch the actual app UI to Russian when the WebView accessibility tree exposes controls.
             tap_text 'Settings' || adb shell input tap 940 95
             sleep 1
             dump_ui settings-en
@@ -88,7 +87,6 @@ jobs:
             sleep 2
             shot 02-home-ru
 
-            # Expert AI mid-game. Select Expert and place several real moves on the canvas.
             tap_text 'Сложность' || true
             tap_text 'Легко' || tap_text 'Easy' || adb shell input tap 760 360
             sleep 1
@@ -104,7 +102,6 @@ jobs:
             sleep 3
             shot 03-expert-midgame
 
-            # Start a local two-player game and create a deterministic horizontal X win.
             tap_text 'Против компьютера' || tap_text 'Vs computer' || adb shell input tap 300 360
             sleep 1
             tap_text 'Два игрока' || tap_text 'Two players' || true
@@ -126,7 +123,6 @@ jobs:
             sleep 2
             shot 05-winning-board
 
-            # Settings and local history are useful catalog screenshots and verify those screens in the release APK.
             tap_text 'Настройки' || tap_text 'Settings' || adb shell input tap 940 95
             sleep 2
             shot 06-settings
