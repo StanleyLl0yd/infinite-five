@@ -1,0 +1,108 @@
+name: Sync v0.5.2 post-release docs
+
+on:
+  push:
+    branches:
+      - docs/post-release-v0.5.2
+    paths:
+      - .github/workflows/post-release-docs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - name: Update released-state documentation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one occurrence, found {count}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'README.md',
+              '[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)',
+              '[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)',
+          )
+          replace_once(
+              'README.md',
+              'Current published release: **v0.5.1** · Web + PWA · GitHub Pages + native release artifacts. v0.5.0 established the Tauri 2 cross-platform foundation; v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, and an ad-hoc signed universal macOS DMG. RuStore, notarized macOS, and iOS store publication remain separate distribution steps.',
+              'Current published release: **v0.5.2** · Web + PWA · GitHub Pages + signed native release artifacts. v0.5.2 includes the repository-wide audit and refactor, hardened immutable-source release verification, a RuStore-ready Android production manifest, store/privacy documentation, signed APK/AAB packaging, and an ad-hoc signed universal macOS DMG. Android publication through RuStore is the active distribution step. Google Play and App Store remain planned until the required developer access is available; macOS Developer ID signing/notarization also remains pending Apple signing access.',
+          )
+          replace_once(
+              'README.md',
+              'Completed in **v0.5.1**: secret-backed Android release signing, verified APK/AAB packaging, universal macOS DMG packaging, release checksums, and automatic native asset attachment to GitHub Releases.\n\nNext priorities:\n\n- complete Android native integration and RuStore publication;\n- prepare macOS direct distribution with Developer ID signing/notarization when available;\n- add iOS packaging when the required Apple distribution access is available;\n- continue adding real-player AI regression positions and measured performance follow-up;\n- later, optional room-link online multiplayer across supported platforms without changing the core rules.',
+              'Completed in **v0.5.1**: secret-backed Android release signing, verified APK/AAB packaging, universal macOS DMG packaging, release checksums, and automatic native asset attachment to GitHub Releases.\n\nCompleted in **v0.5.2**: full repository audit/refactor, release-source hardening, RuStore-oriented Android manifest minimization, synchronized release metadata, publication checklist, privacy policy, application terms, and the first RuStore release candidate.\n\nNext priorities:\n\n- complete RuStore AAB signing enrollment, real-device release smoke testing, store media/forms, and submit v0.5.2 for moderation;\n- prepare macOS direct distribution with Developer ID signing/notarization when available;\n- add Google Play and iOS/App Store distribution when the required developer access is available;\n- continue adding real-player AI regression positions and measured performance follow-up;\n- later, optional room-link online multiplayer across supported platforms without changing the core rules.',
+          )
+
+          replace_once(
+              'README_RU.md',
+              '[![Source version](https://img.shields.io/badge/source-0.5.1-16A34A?labelColor=111827)](package.json)',
+              '[![Source version](https://img.shields.io/badge/source-0.5.2-16A34A?labelColor=111827)](package.json)',
+          )
+          replace_once(
+              'README_RU.md',
+              'Текущий опубликованный релиз: **v0.5.1** · Web + PWA · GitHub Pages + нативные release-файлы. В v0.5.0 была заложена кроссплатформенная основа Tauri 2; v0.5.1 добавляет подпись Android из GitHub Secrets, проверенную сборку APK/AAB и ad-hoc подписанный universal DMG для macOS. Публикация в RuStore, нотарифицированная macOS-сборка и публикация iOS остаются отдельными этапами.',
+              'Текущий опубликованный релиз: **v0.5.2** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.2 вошли полный аудит и рефакторинг репозитория, усиленная проверка неизменяемого release-исходника, минимизированный production manifest Android для RuStore, документы для публикации и конфиденциальности, подписанные APK/AAB и ad-hoc подписанный universal DMG для macOS. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.',
+          )
+          replace_once(
+              'README_RU.md',
+              'В **v0.5.1** завершены: подпись Android из GitHub Secrets, проверенная release-сборка APK/AAB, universal DMG для macOS, checksums и автоматическое добавление нативных файлов в GitHub Release.\n\nСледующие приоритеты:\n\n- завершить Android native-интеграции и публикацию в RuStore;\n- подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;\n- добавить iOS-упаковку по мере появления необходимого Apple-доступа;\n- продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;\n- позже — опциональный онлайн-режим по ссылке на комнату между поддерживаемыми платформами без изменения базовых правил.',
+              'В **v0.5.1** завершены: подпись Android из GitHub Secrets, проверенная release-сборка APK/AAB, universal DMG для macOS, checksums и автоматическое добавление нативных файлов в GitHub Release.\n\nВ **v0.5.2** завершены: полный аудит/рефакторинг репозитория, усиление release-source verification, минимизация Android manifest для RuStore, синхронизация release-метаданных, checklist публикации, политика конфиденциальности, пользовательские условия и первый RuStore release candidate.\n\nСледующие приоритеты:\n\n- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.5.2 на модерацию;\n- подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;\n- добавить Google Play и iOS/App Store после появления необходимого developer-доступа;\n- продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;\n- позже — опциональный онлайн-режим по ссылке на комнату между поддерживаемыми платформами без изменения базовых правил.',
+          )
+
+          replace_once(
+              'docs/PRODUCT.md',
+              'Current published release: **v0.5.1**.',
+              'Current published release: **v0.5.2**.',
+          )
+          replace_once(
+              'docs/PRODUCT.md',
+              'Release v0.5.0 established the cross-platform Tauri foundation, generated Android project and native build verification. Release v0.5.1 adds secret-backed Android release signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, SHA-256 checksums, and automatic attachment of native files to the matching GitHub Release. The first planned public native distribution target is Android through RuStore. macOS direct distribution is kept as an architectural target and can precede any Mac App Store publication. iOS and additional Android stores can be added when the required distribution access is available. Windows and Linux may be evaluated later without changing the shared game implementation.',
+              'Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 adds the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.',
+          )
+          replace_once(
+              'docs/PRODUCT.md',
+              '10. Android release signing and final APK/AAB packaging. Completed in v0.5.1.\n11. RuStore integration, validation and publication.\n12. macOS direct-distribution packaging with Developer ID signing/notarization when available.\n13. iOS packaging and distribution when the required Apple access is available.\n14. Optional room-link online multiplayer across supported platforms.\n15. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.',
+              '10. Android release signing and final APK/AAB packaging. Completed in v0.5.1.\n11. RuStore release preparation, Android manifest hardening, privacy/terms and publication package. Completed in v0.5.2.\n12. RuStore console signing enrollment, real-device validation and publication.\n13. macOS direct-distribution packaging with Developer ID signing/notarization when available.\n14. Google Play and iOS/App Store distribution when the required developer access is available.\n15. Optional room-link online multiplayer across supported platforms.\n16. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.',
+          )
+
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 adds the native release pipeline: Android APK/AAB files are signed from GitHub Secrets and verified before publication, while macOS receives an ad-hoc signed universal DMG. RuStore, Developer ID notarization and iOS store publication remain separate distribution steps.',
+              'Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardens release-source verification, minimizes the production Android manifest for RuStore, synchronizes version metadata, and adds the store publication/privacy package. RuStore submission is now the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.',
+          )
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Before a RuStore release, add only the native integrations that are actually needed. Expected items are Android lifecycle/back handling, native sharing and haptics, release signing, store-safe versioning and the RuStore update flow. RuStore-specific SDK access should be isolated in an Android/Kotlin Tauri plugin so the shared TypeScript game remains store-neutral.',
+              'For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript game remains store-neutral.',
+          )
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Release v0.5.1 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature.',
+              'Release v0.5.2 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature.',
+          )
+          PY
+
+          git diff --check
+          git add README.md README_RU.md docs/PRODUCT.md docs/CROSS_PLATFORM.md
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update documentation after v0.5.2 release"
+          git push
