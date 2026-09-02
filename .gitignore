@@ -8,6 +8,8 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+crates/game-core/target/
+public/game-core/game_core.wasm
 src-tauri/target/
 src-tauri/gen/android/keystore.properties
 *.jks

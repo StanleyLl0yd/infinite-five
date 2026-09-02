@@ -1,15 +1,15 @@
 # Cross-platform foundation
 
-Infinite Five keeps one TypeScript/Vite game implementation and uses Tauri 2 as the native application shell. The browser/PWA build remains a first-class target; native packaging must reuse the same game rules, AI, rendering, replay, history and localization code rather than creating platform-specific game engines.
+Infinite Five keeps one TypeScript/Vite application layer and one authoritative Rust game core, with Tauri 2 as the native application shell. The browser/PWA build remains a first-class target: the Rust core is compiled to WebAssembly for web use, while native packages call the same Rust implementation directly through Tauri. Rendering, replay, history and localization remain shared TypeScript code rather than platform-specific implementations.
 
 Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. RuStore submission is the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
 
 ## Target model
 
 ```text
-Shared TypeScript/Vite application
-├── Web / PWA -> GitHub Pages
-└── Tauri 2
+Shared TypeScript/Vite UI + Rust game core
+├── Web / PWA -> Rust core as WebAssembly -> GitHub Pages
+└── Tauri 2 -> Rust core directly
     ├── Android -> RuStore first, Google Play later if available
     ├── macOS -> direct distribution first, store distribution optional later
     └── iOS -> TestFlight / App Store when distribution access is available
@@ -63,7 +63,7 @@ Android platform files are generated under `src-tauri/gen/android`. Tauri icons 
 
 Android is the first planned native distribution target. The production application should be a self-contained APK/AAB with bundled frontend assets and offline gameplay. Its fixed RuStore application identity is `com.sl.infinitefive`.
 
-For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript game remains store-neutral.
+For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript UI and Rust game core remain store-neutral.
 
 Release AABs and supplemental APKs are produced only from the tagged release source. The AAB is the primary store artifact and uses the upload-key alias expected by the store workflow; the APK is supplemental direct-install output and uses the application-signing alias. Android production packages contain only `arm64-v8a` and `armeabi-v7a`. The project baseline is `minSdk 26`, `targetSdk 36`, `compileSdk 36`, with NDK `29.0.14206865`. The release workflow verifies certificate SHA-256 fingerprints before building, verifies the resulting signatures, and rejects artifacts that fail the expected ABI set, 16 KB ELF LOAD alignment, APK 16 KB zip alignment, or AAB `PAGE_ALIGNMENT_16K` checks.
 
@@ -125,7 +125,7 @@ Before calling a native target supported for public release, verify at minimum:
 - production frontend build;
 - native package build for the target;
 - offline startup from bundled assets;
-- Canvas rendering and Web Worker AI;
+- Canvas rendering and the shared Rust game core through the target-specific bridge;
 - persistence across restart and application upgrade;
 - touch/pointer/keyboard behavior appropriate to the platform;
 - share/replay behavior;

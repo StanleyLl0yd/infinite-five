@@ -82,6 +82,27 @@ describe('native application configuration', () => {
     expect(debugManifest).toContain('android.permission.INTERNET');
   });
 
+  it('hardens Android and Rust release outputs', () => {
+    const gradle = read(`${androidRoot}/app/build.gradle.kts`);
+    const releaseStart = gradle.indexOf('getByName("release")');
+    const releaseEnd = gradle.indexOf('    kotlinOptions', releaseStart);
+    const releaseBlock = gradle.slice(releaseStart, releaseEnd);
+    const cargo = read('src-tauri/Cargo.toml');
+
+    expect(releaseStart).toBeGreaterThanOrEqual(0);
+    expect(releaseBlock).toContain('isDebuggable = false');
+    expect(releaseBlock).toContain('isJniDebuggable = false');
+    expect(releaseBlock).toContain('isMinifyEnabled = true');
+    expect(releaseBlock).toContain('isShrinkResources = true');
+    expect(releaseBlock).toContain('proguard-android-optimize.txt');
+    expect(releaseBlock).not.toContain('keepDebugSymbols');
+    expect(cargo).toContain('[profile.release]');
+    expect(cargo).toContain('lto = "fat"');
+    expect(cargo).toContain('codegen-units = 1');
+    expect(cargo).toContain('strip = "symbols"');
+    expect(cargo).toContain('debug = 0');
+  });
+
   it('keeps release signing external to the repository', () => {
     const gradle = read(`${androidRoot}/app/build.gradle.kts`);
     expect(gradle).toContain('rootProject.file("keystore.properties")');
@@ -107,5 +128,17 @@ describe('native application configuration', () => {
     expect(verifier).toContain('alignment >= 0x4000');
     expect(verifier).toContain('PAGE_ALIGNMENT_16K');
     expect(verifier).toContain('-P 16');
+    expect(verifier).toContain('verify_release_elf');
+    expect(verifier).toContain("verify_native_assets \"$AAB\" 'base/assets/'");
+    expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
+  });
+
+  it('skips automatic native rebuilds when the version tag belongs to an older source', () => {
+    const release = read('.github/workflows/native-release.yml');
+
+    expect(release).toContain('name: Native release preflight');
+    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"');
+    expect(release).toContain('if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]');
+    expect(release).toContain("if: needs.preflight.outputs.should_build == 'true'");
   });
 });

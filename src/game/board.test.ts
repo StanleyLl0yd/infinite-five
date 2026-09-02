@@ -1,52 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { Board } from './board';
+import type { Move } from './types';
 
-describe('Board', () => {
-  it('places and retrieves marks', () => {
+describe('Board render cache', () => {
+  it('replaces and retrieves marks without owning game rules', () => {
     const board = new Board();
-
-    expect(board.place(3, -2, 'X')).toBe(true);
-    expect(board.get(3, -2)).toBe('X');
-    expect(board.getMoves()).toEqual([{ x: 3, y: -2, mark: 'X' }]);
-  });
-
-  it('rejects an occupied cell', () => {
-    const board = new Board();
-
-    expect(board.place(0, 0, 'X')).toBe(true);
-    expect(board.place(0, 0, 'O')).toBe(false);
-    expect(board.getMoves()).toHaveLength(1);
-  });
-
-  it('undoes the latest move', () => {
-    const board = new Board();
-    board.place(0, 0, 'X');
-    board.place(1, 0, 'O');
-
-    expect(board.undo()).toEqual({ x: 1, y: 0, mark: 'O' });
-    expect(board.get(1, 0)).toBeUndefined();
-    expect(board.getMoves()).toHaveLength(1);
-  });
-
-  it('restores a saved position', () => {
-    const board = new Board();
-
-    board.restore([
-      { x: -1, y: 2, mark: 'X' },
-      { x: 0, y: 2, mark: 'O' }
+    board.replace([
+      { x: 3, y: -2, mark: 'X' },
+      { x: 4, y: -2, mark: 'O' }
     ]);
 
-    expect(board.get(-1, 2)).toBe('X');
-    expect(board.get(0, 2)).toBe('O');
+    expect(board.get(3, -2)).toBe('X');
+    expect(board.get(4, -2)).toBe('O');
+    expect(board.getMoves()).toEqual([
+      { x: 3, y: -2, mark: 'X' },
+      { x: 4, y: -2, mark: 'O' }
+    ]);
   });
 
   it('returns only occupied cells inside bounded render coordinates', () => {
     const board = new Board();
+    const moves: Move[] = [];
     for (let index = 0; index < 5_000; index += 1) {
-      board.place(index * 3, index % 17, index % 2 === 0 ? 'X' : 'O');
+      moves.push({ x: index * 3, y: index % 17, mark: index % 2 === 0 ? 'X' : 'O' });
     }
-    board.place(-2, -2, 'X');
-    board.place(2, 2, 'O');
+    moves.push({ x: -2, y: -2, mark: 'X' });
+    moves.push({ x: 2, y: 2, mark: 'O' });
+    board.replace(moves);
 
     expect(board.getMovesInBounds(-3, 3, -3, 3)).toEqual([
       { x: -2, y: -2, mark: 'X' },
@@ -56,14 +36,11 @@ describe('Board', () => {
     ]);
   });
 
-  it('rejects duplicate cells while restoring', () => {
+  it('clears cached state', () => {
     const board = new Board();
-
-    expect(() =>
-      board.restore([
-        { x: 1, y: 1, mark: 'X' },
-        { x: 1, y: 1, mark: 'O' }
-      ])
-    ).toThrow('Invalid saved game');
+    board.replace([{ x: 0, y: 0, mark: 'X' }]);
+    board.clear();
+    expect(board.getMoves()).toEqual([]);
+    expect(board.get(0, 0)).toBeUndefined();
   });
 });

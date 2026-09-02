@@ -123,11 +123,11 @@ Canvas-поле можно сфокусировать и полностью ис
 
 ## 🧩 Кроссплатформенная основа
 
-Та же TypeScript/Vite-реализация упаковывается нативно через **Tauri 2**. Нативные пакеты содержат frontend внутри приложения и не используют GitHub Pages как основной интерфейс. Для нативной сборки PWA-генерация отключается, поэтому обновление Service Worker в браузере отделено от обновлений APK/приложения через магазин или другой канал распространения.
+Тот же TypeScript/Vite-интерфейс упаковывается нативно через **Tauri 2**, а правила поля, проверка победы и AI находятся в едином Rust core. В Web этот core выполняется как WebAssembly, а нативные сборки вызывают ту же Rust-реализацию через Tauri command. Нативные пакеты содержат frontend внутри приложения и не используют GitHub Pages как основной интерфейс. Для нативной сборки PWA-генерация отключается, поэтому обновление Service Worker в браузере отделено от обновлений APK/приложения через магазин или другой канал распространения.
 
 Стабильный Application ID / Bundle ID нативного приложения — **`com.sl.infinitefive`**. Конфигурация Tauri, Android Gradle namespace/applicationId, Kotlin package paths, тесты, workflows и документация должны оставаться синхронизированы с этим идентификатором.
 
-Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift/Rust-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры и AI остаются общими.
+Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры, проверка победы и AI остаются общими в Rust core и не дублируются в TypeScript или платформенном коде.
 
 Подробности, идентификатор приложения и требования к проверке нативных сборок — в [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md).
 
@@ -135,9 +135,9 @@ Canvas-поле можно сфокусировать и полностью ис
 
 | Категория | Технология |
 | --- | --- |
-| Язык | TypeScript 7.0 |
+| Языки | TypeScript 7.0 + Rust |
 | Отрисовка | HTML5 Canvas |
-| Выполнение AI | Web Worker |
+| Выполнение AI | Rust core через WebAssembly Web Worker / Tauri command |
 | Сборка | Vite 8 |
 | PWA | vite-plugin-pwa / Workbox |
 | Нативная оболочка | Tauri 2 / Rust |
@@ -147,23 +147,29 @@ Canvas-поле можно сфокусировать и полностью ис
 | Хостинг | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-Игровая логика отделена от Canvas-отрисовки и платформенной оболочки, чтобы правила, AI, проверку победы, локальную историю и формат обмена партиями можно было тестировать один раз и использовать на поддерживаемых платформах.
+Авторитетный Rust game core отделён от Canvas-отрисовки и платформенной оболочки. TypeScript отвечает за UI, render cache, persistence и sharing, а правила, проверка победы и AI тестируются в Rust и переиспользуются на поддерживаемых платформах.
 
 ## 🗂 Архитектура
 
 ```text
+crates/game-core/
+├── src/ai.rs              оценка AI, тактика и ограниченный поиск
+├── src/board.rs           авторитетное разреженное состояние поля
+├── src/win.rs             проверка победной линии
+├── src/types.rs           общие типы game core
+└── src/lib.rs             JSON dispatch API для WebAssembly и Tauri
+
 src/
 ├── game/
-│   ├── ai.ts              оценка AI, тактика и ограниченный поиск
-│   ├── ai-client.ts       асинхронный клиент AI worker
-│   ├── ai.worker.ts       фоновый расчёт AI
-│   ├── ai.test.ts         набор тактических AI-регрессий
-│   ├── ai.lab.test.ts     self-play smoke-тесты и диагностика
-│   ├── board.ts           разреженное поле и запросы видимого диапазона
+│   ├── ai.ts              type-only compatibility facade AI
+│   ├── ai-client.ts       асинхронная маршрутизация AI
+│   ├── ai.worker.ts       WebAssembly AI worker
+│   ├── core-client.ts     общий bridge к Rust core
+│   ├── core-wasm.ts       загрузчик WebAssembly для браузера
+│   ├── board.ts           render cache и запросы видимого диапазона
 │   ├── history.ts         ограниченная локальная история партий
 │   ├── share.ts           компактное кодирование партии в URL
-│   ├── types.ts           игровые типы
-│   └── win.ts             проверка победной линии
+│   └── types.ts           frontend/transport типы
 ├── ui/
 │   └── canvas-board.ts    Canvas, жесты, клавиатура и анимация победы
 ├── i18n.ts                русский / английский интерфейс
@@ -172,7 +178,7 @@ src/
 └── styles.css             визуальный слой, доступность и адаптивная вёрстка
 
 src-tauri/
-├── src/                    минимальная нативная оболочка Tauri
+├── src/                    оболочка Tauri и command bridge к Rust core
 ├── capabilities/           политика нативных разрешений Tauri
 ├── gen/android/            сгенерированный Android-проект
 ├── icons/                  нативные иконки платформ
@@ -187,7 +193,8 @@ src-tauri/
 Для Web нужны:
 
 - Node.js 22 или другая версия, поддерживаемая текущим Vite;
-- npm.
+- npm;
+- актуальный стабильный Rust toolchain. Для production Web-сборки также нужен Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/infinite-five.git

@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,10 +40,19 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Run tests
+      - name: Run frontend tests
         run: npm test
 
-      - name: Build production bundle
+      - name: Test Rust game core
+        run: npm run test:core
+
+      - name: Install Binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends binaryen
+          wasm-opt --version
+
+      - name: Build and verify production bundle
         run: npm run build
 
       - name: Archive Pages artifact

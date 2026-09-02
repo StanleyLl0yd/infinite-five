@@ -52,7 +52,7 @@ When a shared or replayed game reveals a repeatable AI error:
 
 1. reconstruct the position immediately before the bad AI move as an ordered `Move[]` sequence;
 2. identify the AI mark and the expected move or set of acceptable moves;
-3. add the smallest deterministic case to `src/game/ai.test.ts`;
+3. add the smallest deterministic case to the Rust core test suite in `crates/game-core/src/ai.rs` or `crates/game-core/src/lib.rs`;
 4. use an explicit seed and a bounded `timeBudgetMs`;
 5. confirm that the test fails before the fix and passes after it;
 6. keep the case permanently unless the game rules themselves change.
@@ -61,7 +61,7 @@ Prefer the shortest position that reproduces the tactical problem. A regression 
 
 ## Diagnostics
 
-`chooseAiMove` accepts an optional diagnostics object for test and profiling use. Expert can report:
+The Rust core AI response includes diagnostics for test and profiling use. Expert can report:
 
 - evaluated search nodes;
 - deepest fully completed iterative depth;

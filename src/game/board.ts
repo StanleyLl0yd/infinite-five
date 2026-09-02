@@ -10,28 +10,6 @@ export class Board {
     return this.cells.get(keyOf(x, y))?.mark;
   }
 
-  place(x: number, y: number, mark: Mark): boolean {
-    const key = keyOf(x, y);
-    if (this.cells.has(key)) {
-      return false;
-    }
-
-    const move = { x, y, mark };
-    this.cells.set(key, move);
-    this.moves.push(move);
-    return true;
-  }
-
-  undo(): Move | undefined {
-    const move = this.moves.pop();
-    if (!move) {
-      return undefined;
-    }
-
-    this.cells.delete(keyOf(move.x, move.y));
-    return move;
-  }
-
   clear(): void {
     this.cells.clear();
     this.moves.length = 0;
@@ -58,12 +36,12 @@ export class Board {
     return visible;
   }
 
-  restore(moves: readonly Move[]): void {
+  replace(moves: readonly Move[]): void {
     this.clear();
     for (const move of moves) {
-      if (!this.place(move.x, move.y, move.mark)) {
-        throw new Error('Invalid saved game');
-      }
+      const copy = { ...move };
+      this.cells.set(keyOf(copy.x, copy.y), copy);
+      this.moves.push(copy);
     }
   }
 }

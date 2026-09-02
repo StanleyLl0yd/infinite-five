@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 const tauriPlatform = process.env.TAURI_ENV_PLATFORM;
 const tauriDevHost = process.env.TAURI_DEV_HOST;
 const isTauriBuild = Boolean(tauriPlatform);
+const isTauriDebug = Boolean(process.env.TAURI_ENV_DEBUG);
 
 export default defineConfig({
   base: isTauriBuild ? './' : '/infinite-five/',
@@ -35,24 +36,9 @@ export default defineConfig({
         scope: '/infinite-five/',
         categories: ['games'],
         icons: [
-          {
-            src: 'icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'icon-maskable-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       }
     })
@@ -62,22 +48,21 @@ export default defineConfig({
     strictPort: true,
     host: tauriDevHost || false,
     hmr: tauriDevHost
-      ? {
-          protocol: 'ws',
-          host: tauriDevHost,
-          port: 1421
-        }
+      ? { protocol: 'ws', host: tauriDevHost, port: 1421 }
       : undefined,
     watch: {
-      ignored: ['**/src-tauri/**']
+      ignored: ['**/src-tauri/**', '**/crates/game-core/target/**']
     }
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: isTauriBuild
     ? {
         target: 'es2020',
-        minify: process.env.TAURI_ENV_DEBUG ? false : 'esbuild',
-        sourcemap: Boolean(process.env.TAURI_ENV_DEBUG)
+        minify: isTauriDebug ? false : 'esbuild',
+        sourcemap: isTauriDebug
       }
-    : undefined
+    : {
+        minify: 'esbuild',
+        sourcemap: false
+      }
 });
