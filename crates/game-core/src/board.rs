@@ -9,7 +9,11 @@ pub(crate) const MAX_MOVES: usize = 2_000;
 pub(crate) const MAX_ABS_COORDINATE: i64 = 1_000_000;
 
 pub(crate) fn validate_position(position: Position) -> Result<(), &'static str> {
-    if position.x.abs() <= MAX_ABS_COORDINATE && position.y.abs() <= MAX_ABS_COORDINATE {
+    if -MAX_ABS_COORDINATE <= position.x
+        && position.x <= MAX_ABS_COORDINATE
+        && -MAX_ABS_COORDINATE <= position.y
+        && position.y <= MAX_ABS_COORDINATE
+    {
         Ok(())
     } else {
         Err("Invalid coordinate")
@@ -130,15 +134,51 @@ mod tests {
 
     fn winning_history() -> Vec<Move> {
         vec![
-            Move { x: 0, y: 0, mark: Mark::X },
-            Move { x: 0, y: 1, mark: Mark::O },
-            Move { x: 1, y: 0, mark: Mark::X },
-            Move { x: 1, y: 1, mark: Mark::O },
-            Move { x: 2, y: 0, mark: Mark::X },
-            Move { x: 2, y: 1, mark: Mark::O },
-            Move { x: 3, y: 0, mark: Mark::X },
-            Move { x: 3, y: 1, mark: Mark::O },
-            Move { x: 4, y: 0, mark: Mark::X },
+            Move {
+                x: 0,
+                y: 0,
+                mark: Mark::X,
+            },
+            Move {
+                x: 0,
+                y: 1,
+                mark: Mark::O,
+            },
+            Move {
+                x: 1,
+                y: 0,
+                mark: Mark::X,
+            },
+            Move {
+                x: 1,
+                y: 1,
+                mark: Mark::O,
+            },
+            Move {
+                x: 2,
+                y: 0,
+                mark: Mark::X,
+            },
+            Move {
+                x: 2,
+                y: 1,
+                mark: Mark::O,
+            },
+            Move {
+                x: 3,
+                y: 0,
+                mark: Mark::X,
+            },
+            Move {
+                x: 3,
+                y: 1,
+                mark: Mark::O,
+            },
+            Move {
+                x: 4,
+                y: 0,
+                mark: Mark::X,
+            },
         ]
     }
 
@@ -198,7 +238,11 @@ mod tests {
     #[test]
     fn restore_rejects_a_move_after_victory() {
         let mut history = winning_history();
-        history.push(Move { x: 10, y: 10, mark: Mark::O });
+        history.push(Move {
+            x: 10,
+            y: 10,
+            mark: Mark::O,
+        });
         let mut board = Board::default();
         assert_eq!(board.restore(&history), Err("Invalid saved game"));
         assert!(board.moves().is_empty());
@@ -208,9 +252,21 @@ mod tests {
     fn restore_rejects_multiple_moves_after_victory() {
         let mut history = winning_history();
         history.extend([
-            Move { x: 10, y: 10, mark: Mark::O },
-            Move { x: 11, y: 10, mark: Mark::X },
-            Move { x: 12, y: 10, mark: Mark::O },
+            Move {
+                x: 10,
+                y: 10,
+                mark: Mark::O,
+            },
+            Move {
+                x: 11,
+                y: 10,
+                mark: Mark::X,
+            },
+            Move {
+                x: 12,
+                y: 10,
+                mark: Mark::O,
+            },
         ]);
         let mut board = Board::default();
         assert_eq!(board.restore(&history), Err("Invalid saved game"));
@@ -218,24 +274,25 @@ mod tests {
     }
 
     #[test]
-    fn restore_accepts_coordinate_boundaries_and_rejects_values_beyond_them() {
-        assert_eq!(
-            validate_position(Position {
-                x: MAX_ABS_COORDINATE,
-                y: -MAX_ABS_COORDINATE,
-            }),
-            Ok(())
-        );
-        assert!(validate_position(Position {
-            x: MAX_ABS_COORDINATE + 1,
-            y: 0,
-        })
-        .is_err());
-        assert!(validate_position(Position {
-            x: 0,
-            y: -MAX_ABS_COORDINATE - 1,
-        })
-        .is_err());
+    fn validate_position_accepts_boundaries_and_rejects_extremes() {
+        for (value, accepted) in [
+            (i64::MIN, false),
+            (i64::MAX, false),
+            (-MAX_ABS_COORDINATE - 1, false),
+            (MAX_ABS_COORDINATE + 1, false),
+            (-MAX_ABS_COORDINATE, true),
+            (MAX_ABS_COORDINATE, true),
+            (0, true),
+        ] {
+            assert_eq!(
+                validate_position(Position { x: value, y: 0 }).is_ok(),
+                accepted
+            );
+            assert_eq!(
+                validate_position(Position { x: 0, y: value }).is_ok(),
+                accepted
+            );
+        }
     }
 
     #[test]
@@ -244,7 +301,11 @@ mod tests {
             .map(|index| Move {
                 x: index as i64,
                 y: 0,
-                mark: if index.is_multiple_of(2) { Mark::X } else { Mark::O },
+                mark: if index.is_multiple_of(2) {
+                    Mark::X
+                } else {
+                    Mark::O
+                },
             })
             .collect::<Vec<_>>();
         let mut board = Board::default();
@@ -283,7 +344,11 @@ mod tests {
     #[test]
     fn candidates_do_not_escape_coordinate_limits() {
         let mut board = Board::default();
-        assert!(board.place(MAX_ABS_COORDINATE, MAX_ABS_COORDINATE, Mark::X));
+        assert!(board.place(
+            MAX_ABS_COORDINATE,
+            MAX_ABS_COORDINATE,
+            Mark::X
+        ));
         assert!(board
             .candidates(1)
             .iter()
