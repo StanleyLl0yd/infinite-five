@@ -1,6 +1,5 @@
-import { chooseAiMove, type AiDifficulty } from './ai';
-import { Board } from './board';
-import type { Mark, Move, Position } from './types';
+import { hasNativeCore, requestCoreAiMove } from './core-client';
+import type { AiDifficulty, Mark, Move, Position } from './types';
 
 interface WorkerRequest {
   id: number;
@@ -29,31 +28,49 @@ const randomSeed = (): number => {
   return values[0];
 };
 
-const fallback = (moves: readonly Move[], mark: Mark, difficulty: AiDifficulty, seed: number): Position => {
-  const board = new Board();
-  board.restore(moves);
-  return chooseAiMove(board, mark, difficulty, {
+const fallback = async (
+  moves: readonly Move[],
+  mark: Mark,
+  difficulty: AiDifficulty,
+  seed: number
+): Promise<Position> => {
+  const result = await requestCoreAiMove(
+    moves,
+    mark,
+    difficulty,
     seed,
-    timeBudgetMs: difficulty === 'expert' ? 1_700 : difficulty === 'hard' ? 520 : 180,
-    maxDepth: difficulty === 'expert' ? 4 : undefined
-  });
+    difficulty === 'expert' ? 1_700 : difficulty === 'hard' ? 520 : 180,
+    difficulty === 'expert' ? 4 : undefined
+  );
+  return result.position;
+};
+
+const native = async (
+  moves: readonly Move[],
+  mark: Mark,
+  difficulty: AiDifficulty,
+  seed: number
+): Promise<Position> => {
+  const result = await requestCoreAiMove(
+    moves,
+    mark,
+    difficulty,
+    seed,
+    difficulty === 'expert' ? 2_600 : difficulty === 'hard' ? 700 : 240,
+    difficulty === 'expert' ? 5 : undefined
+  );
+  return result.position;
 };
 
 const getWorker = (): Worker | null => {
-  if (worker) {
-    return worker;
-  }
-  if (typeof Worker === 'undefined') {
-    return null;
-  }
+  if (worker) return worker;
+  if (typeof Worker === 'undefined') return null;
 
   try {
     worker = new Worker(new URL('./ai.worker.ts', import.meta.url), { type: 'module' });
     worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
       const entry = pending.get(event.data.id);
-      if (!entry) {
-        return;
-      }
+      if (!entry) return;
       pending.delete(event.data.id);
       if (event.data.position) {
         entry.resolve(event.data.position);
@@ -62,9 +79,7 @@ const getWorker = (): Worker | null => {
       }
     });
     worker.addEventListener('error', () => {
-      for (const entry of pending.values()) {
-        entry.reject(new Error('AI worker failed'));
-      }
+      for (const entry of pending.values()) entry.reject(new Error('AI worker failed'));
       pending.clear();
       worker?.terminate();
       worker = null;
@@ -81,12 +96,13 @@ export const requestAiMove = async (
   mark: Mark,
   difficulty: AiDifficulty
 ): Promise<Position> => {
-  const snapshot = [...moves];
+  const snapshot = moves.map((move) => ({ ...move }));
   const seed = randomSeed();
+
+  if (hasNativeCore()) return native(snapshot, mark, difficulty, seed);
+
   const aiWorker = getWorker();
-  if (!aiWorker) {
-    return fallback(snapshot, mark, difficulty, seed);
-  }
+  if (!aiWorker) return fallback(snapshot, mark, difficulty, seed);
 
   const id = ++requestId;
   const request: WorkerRequest = { id, moves: snapshot, mark, difficulty, seed };

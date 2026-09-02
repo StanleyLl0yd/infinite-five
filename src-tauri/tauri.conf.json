@@ -4,12 +4,13 @@
   "version": "0.6.0",
   "identifier": "com.sl.infinitefive",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev:tauri",
+    "beforeBuildCommand": "npm run build:tauri",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
@@ -42,8 +43,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "android": {
-      "minSdkVersion": 26
-    }
+    "android": { "minSdkVersion": 26 }
   }
 }

@@ -1,6 +1,5 @@
-import { chooseAiMove, type AiDifficulty } from './ai';
-import { Board } from './board';
-import type { Mark, Move } from './types';
+import { callWasmCore } from './core-wasm';
+import type { AiDifficulty, AiSearchDiagnostics, Mark, Move, Position } from './types';
 
 interface WorkerRequest {
   id: number;
@@ -10,18 +9,30 @@ interface WorkerRequest {
   seed: number;
 }
 
+interface CoreAiResult {
+  position?: Position;
+  diagnostics?: AiSearchDiagnostics;
+}
+
 self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
   const { id, moves, mark, difficulty, seed } = event.data;
-  try {
-    const board = new Board();
-    board.restore(moves);
-    const position = chooseAiMove(board, mark, difficulty, {
-      seed,
-      timeBudgetMs: difficulty === 'expert' ? 2_600 : difficulty === 'hard' ? 700 : 240,
-      maxDepth: difficulty === 'expert' ? 5 : undefined
+  void callWasmCore<CoreAiResult>({
+    op: 'ai_move',
+    moves,
+    mark,
+    difficulty,
+    seed,
+    timeBudgetMs: difficulty === 'expert' ? 2_600 : difficulty === 'hard' ? 700 : 240,
+    ...(difficulty === 'expert' ? { maxDepth: 5 } : {})
+  })
+    .then((result) => {
+      if (!result.position) throw new Error('Game core did not return an AI move');
+      self.postMessage({ id, position: result.position });
+    })
+    .catch((error) => {
+      self.postMessage({
+        id,
+        error: error instanceof Error ? error.message : 'AI worker failed'
+      });
     });
-    self.postMessage({ id, position });
-  } catch (error) {
-    self.postMessage({ id, error: error instanceof Error ? error.message : 'AI worker failed' });
-  }
 });

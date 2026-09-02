@@ -13,4 +13,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = "=2.6.3"
 
 [dependencies]
+infinite-five-game-core = { path = "../crates/game-core" }
 tauri = "=2.11.3"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = 0
+incremental = false
