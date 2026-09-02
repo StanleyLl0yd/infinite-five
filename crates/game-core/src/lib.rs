@@ -360,6 +360,68 @@ mod tests {
     }
 
     #[test]
+    fn dispatch_enforces_state_limits_on_all_entry_points() {
+        let invalid = Move {
+            x: 1_000_001,
+            y: 0,
+            mark: Mark::X,
+        };
+
+        for request in [
+            CoreRequest::State { moves: vec![invalid] },
+            CoreRequest::Undo {
+                moves: vec![invalid],
+                count: 1,
+            },
+            CoreRequest::AiMove {
+                moves: vec![invalid],
+                mark: Mark::O,
+                difficulty: AiDifficulty::Medium,
+                seed: Some(1),
+                time_budget_ms: Some(140),
+                max_depth: None,
+            },
+        ] {
+            assert_eq!(dispatch(request).unwrap_err().to_string(), "Invalid saved game");
+        }
+
+        let out_of_bounds = dispatch(CoreRequest::ApplyMove {
+            moves: Vec::new(),
+            position: Position { x: 1_000_001, y: 0 },
+            mark: Mark::X,
+        });
+        assert_eq!(out_of_bounds.unwrap_err().to_string(), "Invalid coordinate");
+    }
+
+    #[test]
+    fn dispatch_prevents_moves_beyond_the_core_move_limit() {
+        let moves = (0..2_000)
+            .map(|index| Move {
+                x: index,
+                y: 0,
+                mark: if index % 2 == 0 { Mark::X } else { Mark::O },
+            })
+            .collect::<Vec<_>>();
+
+        let apply = dispatch(CoreRequest::ApplyMove {
+            moves: moves.clone(),
+            position: Position { x: 10_000, y: 0 },
+            mark: Mark::X,
+        });
+        assert_eq!(apply.unwrap_err().to_string(), "Move limit exceeded");
+
+        let ai = dispatch(CoreRequest::AiMove {
+            moves,
+            mark: Mark::X,
+            difficulty: AiDifficulty::Easy,
+            seed: Some(1),
+            time_budget_ms: Some(140),
+            max_depth: None,
+        });
+        assert_eq!(ai.unwrap_err().to_string(), "Move limit exceeded");
+    }
+
+    #[test]
     fn undo_is_performed_inside_the_core() {
         let response = dispatch_json(
             r#"{"op":"undo","moves":[{"x":0,"y":0,"mark":"X"},{"x":1,"y":0,"mark":"O"}],"count":1}"#,
