@@ -19,6 +19,7 @@ pub use types::WinningLine;
 enum CoreError {
     InvalidRequest(String),
     InvalidBoard(&'static str),
+    InvalidMove(&'static str),
     Occupied,
 }
 
@@ -26,7 +27,7 @@ impl fmt::Display for CoreError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidRequest(message) => write!(formatter, "{message}"),
-            Self::InvalidBoard(message) => write!(formatter, "{message}"),
+            Self::InvalidBoard(message) | Self::InvalidMove(message) => write!(formatter, "{message}"),
             Self::Occupied => write!(formatter, "Cell is occupied"),
         }
     }
@@ -111,6 +112,17 @@ fn state_from_board(board: &Board) -> GameState {
     }
 }
 
+fn validate_turn(board: &Board, mark: Mark) -> Result<(), CoreError> {
+    let state = state_from_board(board);
+    if state.winner.is_some() {
+        return Err(CoreError::InvalidMove("Game is already finished"));
+    }
+    if mark != state.next_mark {
+        return Err(CoreError::InvalidMove("Invalid turn"));
+    }
+    Ok(())
+}
+
 fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
     match request {
         CoreRequest::State { moves } => {
@@ -128,6 +140,7 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
             mark,
         } => {
             let mut board = board_from_moves(&moves)?;
+            validate_turn(&board, mark)?;
             if !board.place(position.x, position.y, mark) {
                 return Err(CoreError::Occupied);
             }
@@ -161,6 +174,7 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
             max_depth,
         } => {
             let mut board = board_from_moves(&moves)?;
+            validate_turn(&board, mark)?;
             let (position, diagnostics) = choose_ai_move(
                 &mut board,
                 mark,
@@ -253,13 +267,20 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_rejects_occupied_cells() {
-        let response = dispatch_json(
+    fn dispatch_rejects_invalid_moves() {
+        let occupied = dispatch_json(
             r#"{"op":"apply_move","moves":[{"x":0,"y":0,"mark":"X"}],"position":{"x":0,"y":0},"mark":"O"}"#,
         );
-        let parsed = serde_json::from_str::<serde_json::Value>(&response).unwrap();
+        let parsed = serde_json::from_str::<serde_json::Value>(&occupied).unwrap();
         assert_eq!(parsed["ok"], false);
         assert_eq!(parsed["error"], "Cell is occupied");
+
+        let wrong_turn = dispatch_json(
+            r#"{"op":"apply_move","moves":[],"position":{"x":0,"y":0},"mark":"O"}"#,
+        );
+        let parsed = serde_json::from_str::<serde_json::Value>(&wrong_turn).unwrap();
+        assert_eq!(parsed["ok"], false);
+        assert_eq!(parsed["error"], "Invalid turn");
     }
 
     #[test]
