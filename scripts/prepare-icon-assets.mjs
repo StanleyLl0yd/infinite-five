@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -25,39 +25,30 @@ function copy(source, destination) {
 }
 
 if (!existsSync(masterIcon)) {
-  throw new Error(`Missing raster icon master: ${masterIcon}`);
+  throw new Error(`Missing raster master icon: ${masterIcon}`);
 }
 
 runIcon(masterIcon, nativeIcons);
 
-const adaptiveXml = `<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-</adaptive-icon>
-`;
-const backgroundXml = `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">#041230</color>
-</resources>
-`;
-const sourceAdaptiveDir = join(nativeIcons, 'android', 'mipmap-anydpi-v26');
-const sourceValuesDir = join(nativeIcons, 'android', 'values');
-mkdirSync(sourceAdaptiveDir, { recursive: true });
-mkdirSync(sourceValuesDir, { recursive: true });
-writeFileSync(join(sourceAdaptiveDir, 'ic_launcher.xml'), adaptiveXml);
-writeFileSync(join(sourceAdaptiveDir, 'ic_launcher_round.xml'), adaptiveXml);
-writeFileSync(join(sourceValuesDir, 'ic_launcher_background.xml'), backgroundXml);
-
 for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
-  copy(join(nativeIcons, 'android', `mipmap-${density}`), join(androidRes, `mipmap-${density}`));
+  copy(
+    join(nativeIcons, 'android', `mipmap-${density}`),
+    join(androidRes, `mipmap-${density}`)
+  );
 }
-copy(sourceAdaptiveDir, join(androidRes, 'mipmap-anydpi-v26'));
-copy(join(sourceValuesDir, 'ic_launcher_background.xml'), join(androidRes, 'values', 'ic_launcher_background.xml'));
+copy(join(nativeIcons, 'android', 'mipmap-anydpi-v26'), join(androidRes, 'mipmap-anydpi-v26'));
+copy(join(nativeIcons, 'android', 'values'), join(androidRes, 'values'));
+copy(
+  join(androidRes, 'mipmap-anydpi-v26', 'ic_launcher.xml'),
+  join(androidRes, 'mipmap-anydpi-v26', 'ic_launcher_round.xml')
+);
 
 copy(join(nativeIcons, 'icon.png'), join('public', 'icon-512.png'));
-copy(join(nativeIcons, 'android', 'mipmap-xxxhdpi', 'ic_launcher.png'), join('public', 'icon-192.png'));
+copy(join(nativeIcons, 'icon.png'), join('public', 'icon-maskable-512.png'));
+copy(
+  join(nativeIcons, 'android', 'mipmap-xxxhdpi', 'ic_launcher.png'),
+  join('public', 'icon-192.png')
+);
 copy(join(nativeIcons, 'ios', 'AppIcon-60x60@3x.png'), join('public', 'apple-touch-icon.png'));
 copy(join(nativeIcons, '32x32.png'), join('public', 'favicon-32.png'));
-copy(join(nativeIcons, 'icon.png'), join('public', 'icon-maskable-512.png'));
 copy(join(nativeIcons, 'icon.png'), join('docs', 'assets', 'rustore', 'infinite-five-icon-512.png'));

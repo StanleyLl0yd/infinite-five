@@ -24,8 +24,30 @@ jobs:
 
       - name: Reconstruct raster master
         run: |
-          cat .icon-upload/part*.b64 > "$RUNNER_TEMP/infinite-five-icon.b64"
+          cat \
+            .icon-upload/part01.b64 \
+            .icon-upload/part02.b64 \
+            .icon-upload/part03.b64 \
+            .icon-upload/part04.b64 \
+            .icon-upload/part05.b64 \
+            .icon-upload/part06.b64 \
+            .icon-upload/part07.b64 \
+            .icon-upload/fix08a.b64 \
+            .icon-upload/fix08b.b64 \
+            .icon-upload/fix08c.b64 \
+            .icon-upload/part09.b64 \
+            .icon-upload/fix10a.b64 \
+            .icon-upload/fix10b.b64 \
+            .icon-upload/fix10c.b64 \
+            .icon-upload/part11.b64 \
+            .icon-upload/fix12a.b64 \
+            .icon-upload/fix12b.b64 \
+            .icon-upload/fix12c.b64 \
+            .icon-upload/part13.b64 \
+            .icon-upload/part14.b64 \
+            > "$RUNNER_TEMP/infinite-five-icon.b64"
           base64 --decode "$RUNNER_TEMP/infinite-five-icon.b64" > "$RUNNER_TEMP/infinite-five-icon.jpg"
+          echo "55b6872cb99cb230a6b585851e1a1af5aa3066647ac2130a1e81f490837e734f  $RUNNER_TEMP/infinite-five-icon.jpg" | sha256sum --check --strict
           file "$RUNNER_TEMP/infinite-five-icon.jpg" | grep -F 'JPEG image data'
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends imagemagick
@@ -42,17 +64,21 @@ jobs:
           text = index.read_text(encoding='utf-8')
           old = '<link rel="icon" href="./icon.svg" type="image/svg+xml" />'
           new = '<link rel="icon" href="./favicon-32.png" type="image/png" />'
-          if old not in text:
-              raise SystemExit('Expected SVG favicon reference not found')
-          index.write_text(text.replace(old, new), encoding='utf-8')
+          if old in text:
+              text = text.replace(old, new)
+          elif new not in text:
+              raise SystemExit('Expected favicon reference not found')
+          index.write_text(text, encoding='utf-8')
 
           vite = Path('vite.config.ts')
           text = vite.read_text(encoding='utf-8')
           old = "        'icon.svg',\n"
           new = "        'favicon-32.png',\n"
-          if old not in text:
-              raise SystemExit('Expected SVG PWA asset reference not found')
-          vite.write_text(text.replace(old, new), encoding='utf-8')
+          if old in text:
+              text = text.replace(old, new)
+          elif new not in text:
+              raise SystemExit('Expected PWA icon asset reference not found')
+          vite.write_text(text, encoding='utf-8')
           PY
 
       - name: Remove vector icon sources
@@ -80,10 +106,22 @@ jobs:
           test -f src-tauri/icons/icon.icns
           test -f src-tauri/icons/icon.ico
           test -f src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          ! grep -R -n -E 'infinite-five-icon.*\.svg|icon-manifest\.json|public/icon\.svg' package.json scripts vite.config.ts index.html branding || false
+          test -f src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           if grep -R -n -E 'infinite-five-icon.*\.svg|icon-manifest\.json|public/icon\.svg' package.json scripts vite.config.ts index.html branding; then
             exit 1
           fi
+
+      - name: Refresh lock metadata
+        run: |
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          lock.version = pkg.version;
+          if (lock.packages && lock.packages['']) lock.packages[''].version = pkg.version;
+          fs.writeFileSync('package-lock.json', `${JSON.stringify(lock, null, 2)}\n`);
+          NODE
 
       - name: Commit raster icon assets
         run: |
