@@ -50,6 +50,11 @@ jobs:
       - name: Lint Rust game core
         run: cargo clippy --manifest-path crates/game-core/Cargo.toml --all-targets -- -D warnings
 
+      - name: Verify native Cargo lock
+        run: |
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps >/dev/null
+          git diff --exit-code -- src-tauri/Cargo.lock
+
       - name: Install Binaryen
         run: |
           sudo apt-get update
