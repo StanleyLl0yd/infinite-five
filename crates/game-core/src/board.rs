@@ -39,8 +39,13 @@ impl Board {
 
     pub fn restore(&mut self, moves: &[Move]) -> Result<(), &'static str> {
         self.clear();
-        for next in moves {
-            if !self.place(next.x, next.y, next.mark) {
+        for (index, next) in moves.iter().enumerate() {
+            let expected = if index.is_multiple_of(2) {
+                Mark::X
+            } else {
+                Mark::O
+            };
+            if next.mark != expected || !self.place(next.x, next.y, next.mark) {
                 self.clear();
                 return Err("Invalid saved game");
             }
@@ -100,9 +105,9 @@ mod tests {
     }
 
     #[test]
-    fn restore_rejects_duplicate_cells() {
+    fn restore_rejects_invalid_sequences() {
         let mut board = Board::default();
-        let moves = [
+        let duplicate = [
             Move {
                 x: 1,
                 y: 1,
@@ -114,7 +119,15 @@ mod tests {
                 mark: Mark::O,
             },
         ];
-        assert_eq!(board.restore(&moves), Err("Invalid saved game"));
+        assert_eq!(board.restore(&duplicate), Err("Invalid saved game"));
+        assert!(board.moves().is_empty());
+
+        let wrong_turn = [Move {
+            x: 0,
+            y: 0,
+            mark: Mark::O,
+        }];
+        assert_eq!(board.restore(&wrong_turn), Err("Invalid saved game"));
         assert!(board.moves().is_empty());
     }
 
