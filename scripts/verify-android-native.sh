@@ -72,12 +72,15 @@ verify_release_elf() {
 
 verify_native_assets() {
   local archive="$1"
-  if unzip -Z1 "$archive" | grep -Eq '\.(map|ts|tsx)$'; then
-    echo "Source or source-map artifact leaked into native package: $archive" >&2
+  local prefix="$2"
+  local assets
+  assets="$(unzip -Z1 "$archive" | awk -v prefix="$prefix" 'index($0, prefix) == 1')"
+  if grep -Eq '\.(map|ts|tsx|rs)$' <<<"$assets"; then
+    echo "Source or source-map artifact leaked into native app assets: $archive" >&2
     exit 1
   fi
-  if unzip -Z1 "$archive" | grep -Eq '(^|/)game_core\.wasm$'; then
-    echo "WebAssembly game core leaked into native package: $archive" >&2
+  if grep -Eq '(^|/)game_core\.wasm$' <<<"$assets"; then
+    echo "WebAssembly game core leaked into native app assets: $archive" >&2
     exit 1
   fi
 }
@@ -88,8 +91,8 @@ verify_elf_alignment "$AAB" 'base/lib/arm64-v8a/*.so' "$TMP_DIR/aab-align"
 verify_elf_alignment "$APK" 'lib/arm64-v8a/*.so' "$TMP_DIR/apk-align"
 verify_release_elf "$AAB" 'base/lib/*/*.so' "$TMP_DIR/aab-release"
 verify_release_elf "$APK" 'lib/*/*.so' "$TMP_DIR/apk-release"
-verify_native_assets "$AAB"
-verify_native_assets "$APK"
+verify_native_assets "$AAB" 'base/assets/'
+verify_native_assets "$APK" 'assets/'
 
 ZIPALIGN="${ZIPALIGN:-$(find "${ANDROID_HOME:?ANDROID_HOME is required}/build-tools" -type f -name zipalign | sort -V | tail -n 1)}"
 test -x "$ZIPALIGN"
