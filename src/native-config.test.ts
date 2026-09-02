@@ -129,5 +129,16 @@ describe('native application configuration', () => {
     expect(verifier).toContain('PAGE_ALIGNMENT_16K');
     expect(verifier).toContain('-P 16');
     expect(verifier).toContain('verify_release_elf');
+    expect(verifier).toContain("verify_native_assets \"$AAB\" 'base/assets/'");
+    expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
+  });
+
+  it('skips automatic native rebuilds when the version tag belongs to an older source', () => {
+    const release = read('.github/workflows/native-release.yml');
+
+    expect(release).toContain('name: Native release preflight');
+    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"');
+    expect(release).toContain('if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]');
+    expect(release).toContain("if: needs.preflight.outputs.should_build == 'true'");
   });
 });
