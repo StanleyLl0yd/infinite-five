@@ -53,8 +53,13 @@ replace_release_line(
 )
 replace_once(
     "README_RU.md",
-    "Authoritative Rust game core отделён от Canvas-отрисовки и platform-shell логики. TypeScript отвечает за UI orchestration, render cache, persistence и sharing, а правила, определение победы и AI тестируются в Rust и используются всеми поддерживаемыми платформами.",
-    "Authoritative Rust game core отделён от Canvas-отрисовки и platform-shell логики. TypeScript отвечает за UI orchestration, render cache, persistence и sharing, а правила, определение победы и AI тестируются в Rust и используются всеми поддерживаемыми платформами. На границе core восстановленная партия ограничена 2 000 ходами и координатами ±1 000 000; внешние time/depth параметры AI ограничиваются безопасными пределами без изменения production-настроек сложности, а невозможная история с ходами после победы отклоняется.",
+    "Авторитетный Rust game core отделён от Canvas-отрисовки и платформенной оболочки. TypeScript отвечает за UI, render cache, persistence и sharing, а правила, проверка победы и AI тестируются в Rust и переиспользуются на поддерживаемых платформах.",
+    "Авторитетный Rust game core отделён от Canvas-отрисовки и платформенной оболочки. TypeScript отвечает за UI, render cache, persistence и sharing, а правила, проверка победы и AI тестируются в Rust и переиспользуются на поддерживаемых платформах. На границе core восстановленная партия ограничена 2 000 ходами и координатами ±1 000 000; внешние time/depth параметры AI ограничиваются безопасными пределами без изменения production-настроек сложности, а невозможная история с ходами после победы отклоняется.",
+)
+replace_once(
+    "README_RU.md",
+    "npm run build\n```",
+    "npm run build\ncargo audit --file crates/game-core/Cargo.lock\ncargo audit --file src-tauri/Cargo.lock\n```",
 )
 
 replace_once(
