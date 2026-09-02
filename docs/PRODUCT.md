@@ -2,7 +2,7 @@
 
 ## Product
 
-Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The TypeScript/Vite implementation is the shared game implementation for the browser and native application shells so platform expansion does not create separate game engines.
+Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. TypeScript/Vite provides the shared application and rendering layer, while one authoritative Rust core implements board rules, win detection and AI for both browser and native shells so platform expansion does not create separate game engines.
 
 Current published release: **v0.6.0**.
 
@@ -122,19 +122,20 @@ Win detection starts from the latest move and scans the four relevant axes. The 
 
 ## Architecture
 
-- TypeScript for shared application and game logic.
+- TypeScript for shared application orchestration, rendering, persistence and sharing.
+- Rust for authoritative board rules, win detection and AI.
 - HTML5 Canvas for board rendering and input.
-- Web Worker for non-blocking AI calculation.
+- WebAssembly in a Web Worker for non-blocking browser AI calculation; native builds call the same Rust core through Tauri.
 - Vite for development and production builds.
 - vite-plugin-pwa for browser installation, updates and offline support.
 - Tauri 2 for native application shells and packaging.
-- Rust for the minimal shared Tauri shell; Kotlin/Swift only for native integrations that actually require them.
-- Vitest for game, history, sharing, locale, native identity and AI regression tests.
+- Tauri 2 / Rust for the native shell and native bridge to the same game core; Kotlin/Swift only for native integrations that actually require them.
+- Cargo tests for game-core and AI regressions, plus Vitest for frontend state, history, sharing, locale and native-identity regressions.
 - localStorage-compatible persistence for current local state and recent-game history.
 - URL fragments for backend-free game sharing.
 - GitHub Actions for CI, security verification, native package verification and GitHub Pages deployment.
 
-Game rules, AI evaluation, local history and sharing formats must remain independent from rendering and browser/native shell concerns where practical so the same implementation serves every target.
+The Rust rules/AI core, local history and sharing formats must remain independent from rendering and browser/native shell concerns where practical so the same implementations serve every target.
 
 ## Development order
 

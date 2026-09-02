@@ -123,11 +123,11 @@ There is no account, backend, analytics, advertising, or tracking. The current g
 
 ## 🧩 Cross-platform foundation
 
-The same TypeScript/Vite application is packaged natively with **Tauri 2**. Native packages bundle the frontend locally instead of using the hosted GitHub Pages site as their primary UI. PWA generation is disabled for native builds so browser service-worker updates remain separate from store/package updates.
+The same TypeScript/Vite UI is packaged natively with **Tauri 2**, while board rules, win detection and AI live in one shared Rust core. Web builds execute that core as WebAssembly; native builds call the same Rust implementation through a Tauri command. Native packages bundle the frontend locally instead of using the hosted GitHub Pages site as their primary UI. PWA generation is disabled for native builds so browser service-worker updates remain separate from store/package updates.
 
 The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace/applicationId, Kotlin package paths, tests, workflows, and documentation are kept aligned with that identity.
 
-The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift/Rust code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates; game rules and AI remain shared.
+The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates. Game rules, win detection and AI remain shared in the Rust core instead of being duplicated in TypeScript or platform code.
 
 See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, build rules, identifiers, and native validation gates.
 
@@ -135,9 +135,9 @@ See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, 
 
 | Category | Technology |
 | --- | --- |
-| Language | TypeScript 7.0 |
+| Languages | TypeScript 7.0 + Rust |
 | Rendering | HTML5 Canvas |
-| AI execution | Web Worker |
+| AI execution | Rust core via WebAssembly Web Worker / Tauri command |
 | Build | Vite 8 |
 | PWA | vite-plugin-pwa / Workbox |
 | Native shell | Tauri 2 / Rust |
@@ -147,23 +147,29 @@ See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, 
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-Game logic remains separate from Canvas rendering and platform-shell concerns so board rules, win detection, local history, sharing, and AI can be tested once and reused across supported targets.
+The authoritative Rust game core remains separate from Canvas rendering and platform-shell concerns. TypeScript owns UI orchestration, rendering caches, persistence and sharing, while rules, win detection and AI are tested in Rust and reused across supported targets.
 
 ## 🗂 Architecture
 
 ```text
+crates/game-core/
+├── src/ai.rs              AI evaluation, tactics and bounded search
+├── src/board.rs           authoritative sparse board state
+├── src/win.rs             winning-line detection
+├── src/types.rs           shared game-core types
+└── src/lib.rs             JSON dispatch API for WebAssembly and Tauri
+
 src/
 ├── game/
-│   ├── ai.ts              AI evaluation, tactical checks and bounded search
-│   ├── ai-client.ts       asynchronous AI worker client
-│   ├── ai.worker.ts       background AI execution
-│   ├── ai.test.ts         tactical AI regression corpus
-│   ├── ai.lab.test.ts     self-play smoke tests and diagnostics
-│   ├── board.ts           sparse infinite-board state and bounded viewport queries
+│   ├── ai.ts              type-only AI compatibility facade
+│   ├── ai-client.ts       asynchronous AI routing
+│   ├── ai.worker.ts       WebAssembly AI worker
+│   ├── core-client.ts     shared Rust-core bridge
+│   ├── core-wasm.ts       browser WebAssembly loader
+│   ├── board.ts           render cache and bounded viewport queries
 │   ├── history.ts         bounded local completed-game history
 │   ├── share.ts           compact game URL encoding
-│   ├── types.ts           game types
-│   └── win.ts             winning-line detection
+│   └── types.ts           frontend/shared transport types
 ├── ui/
 │   └── canvas-board.ts    Canvas rendering, gestures, keyboard input and win animation
 ├── i18n.ts                Russian / English interface
@@ -172,7 +178,7 @@ src/
 └── styles.css             visual layer, accessibility and responsive layout
 
 src-tauri/
-├── src/                    minimal Tauri native shell
+├── src/                    Tauri shell and Rust-core command bridge
 ├── capabilities/           native capability policy
 ├── gen/android/            generated Android project
 ├── icons/                  native platform icons
@@ -187,7 +193,8 @@ The full product specification is tracked in [`docs/PRODUCT.md`](docs/PRODUCT.md
 Web development requirements:
 
 - Node.js 22 or another version supported by the current Vite release;
-- npm.
+- npm;
+- a current stable Rust toolchain. Production web builds also require Binaryen (`wasm-opt`).
 
 ```bash
 git clone https://github.com/StanleyLl0yd/infinite-five.git
