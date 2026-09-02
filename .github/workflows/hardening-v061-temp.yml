@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: hardening/v0.6.1-final
-      - name: Apply v0.6.1 version state
+      - name: Apply corrected v0.6.1 version state
         run: python .github/hardening-v061-temp.py
       - name: Refresh local package lock metadata
         run: |
