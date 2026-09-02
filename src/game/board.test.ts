@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Board } from './board';
+import type { Move } from './types';
 
 describe('Board render cache', () => {
   it('replaces and retrieves marks without owning game rules', () => {
@@ -19,9 +20,9 @@ describe('Board render cache', () => {
 
   it('returns only occupied cells inside bounded render coordinates', () => {
     const board = new Board();
-    const moves = [];
+    const moves: Move[] = [];
     for (let index = 0; index < 5_000; index += 1) {
-      moves.push({ x: index * 3, y: index % 17, mark: index % 2 === 0 ? 'X' as const : 'O' as const });
+      moves.push({ x: index * 3, y: index % 17, mark: index % 2 === 0 ? 'X' : 'O' });
     }
     moves.push({ x: -2, y: -2, mark: 'X' });
     moves.push({ x: 2, y: 2, mark: 'O' });
