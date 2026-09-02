@@ -1,9 +1,17 @@
 from pathlib import Path
 
-path = Path("crates/game-core/src/lib.rs")
-text = path.read_text(encoding="utf-8")
-anchor = """    #[test]\n    fn undo_is_performed_inside_the_core() {\n"""
-addition = """    #[test]\n    fn dispatch_enforces_state_limits_on_all_entry_points() {\n        let invalid = Move {\n            x: 1_000_001,\n            y: 0,\n            mark: Mark::X,\n        };\n\n        for request in [\n            CoreRequest::State { moves: vec![invalid] },\n            CoreRequest::Undo {\n                moves: vec![invalid],\n                count: 1,\n            },\n            CoreRequest::AiMove {\n                moves: vec![invalid],\n                mark: Mark::O,\n                difficulty: AiDifficulty::Medium,\n                seed: Some(1),\n                time_budget_ms: Some(140),\n                max_depth: None,\n            },\n        ] {\n            assert_eq!(dispatch(request).unwrap_err().to_string(), "Invalid saved game");\n        }\n\n        let out_of_bounds = dispatch(CoreRequest::ApplyMove {\n            moves: Vec::new(),\n            position: Position { x: 1_000_001, y: 0 },\n            mark: Mark::X,\n        });\n        assert_eq!(out_of_bounds.unwrap_err().to_string(), "Invalid coordinate");\n    }\n\n    #[test]\n    fn dispatch_prevents_moves_beyond_the_core_move_limit() {\n        let moves = (0..2_000)\n            .map(|index| Move {\n                x: index,\n                y: 0,\n                mark: if index % 2 == 0 { Mark::X } else { Mark::O },\n            })\n            .collect::<Vec<_>>();\n\n        let apply = dispatch(CoreRequest::ApplyMove {\n            moves: moves.clone(),\n            position: Position { x: 10_000, y: 0 },\n            mark: Mark::X,\n        });\n        assert_eq!(apply.unwrap_err().to_string(), "Move limit exceeded");\n\n        let ai = dispatch(CoreRequest::AiMove {\n            moves,\n            mark: Mark::X,\n            difficulty: AiDifficulty::Easy,\n            seed: Some(1),\n            time_budget_ms: Some(140),\n            max_depth: None,\n        });\n        assert_eq!(ai.unwrap_err().to_string(), "Move limit exceeded");\n    }\n\n""" + anchor
-if text.count(anchor) != 1:
-    raise SystemExit(f"expected one undo test anchor, found {text.count(anchor)}")
-path.write_text(text.replace(anchor, addition, 1), encoding="utf-8")
+
+def replace_exact(path: str, old: str, new: str, expected: int = 1) -> None:
+    file = Path(path)
+    text = file.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != expected:
+        raise SystemExit(f"expected {expected} matches in {path}, found {count}")
+    file.write_text(text.replace(old, new), encoding="utf-8")
+
+
+replace_exact("package.json", '"version": "0.6.0"', '"version": "0.6.1"')
+replace_exact("package-lock.json", '"version": "0.6.0"', '"version": "0.6.1"', 2)
+replace_exact("src-tauri/tauri.conf.json", '"version": "0.6.0"', '"version": "0.6.1"')
+replace_exact("src-tauri/Cargo.toml", 'version = "0.6.0"', 'version = "0.6.1"')
+replace_exact("crates/game-core/Cargo.toml", 'version = "0.6.0"', 'version = "0.6.1"')
