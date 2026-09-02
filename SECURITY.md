@@ -14,6 +14,6 @@ Security fixes are applied to the latest published release, the current code on 
 
 ## Scope
 
-Security reports may cover the web application, PWA behavior, dependency or supply-chain risks, GitHub Actions workflows, and accidental exposure of secrets.
+Security reports may cover the web application, PWA behavior, Rust game-core trust boundaries, dependency or supply-chain risks, GitHub Actions workflows, native release packaging, and accidental exposure of secrets. npm dependencies are audited in CI and both Rust lockfiles are checked against RustSec advisories without blanket ignores.
 
 Ordinary gameplay bugs, AI behavior, visual issues, and feature requests should use the normal issue tracker instead.

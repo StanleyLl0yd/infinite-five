@@ -134,3 +134,9 @@ Before calling a native target supported for public release, verify at minimum:
 - Android release ABI shape and 16 KB ELF/APK/AAB compatibility when Android is targeted.
 
 A successful CI package build is a compatibility signal, not a substitute for testing the application on real hardware.
+
+## Release hardening baseline
+
+The authoritative rules and AI stay in the shared Rust core. External core state is bounded and validated before gameplay/search work, including impossible post-win histories, coordinate/move limits, and bounded AI request parameters. Rust lockfiles are monitored by Dependabot and audited against RustSec advisories.
+
+Production web builds require optimized/stripped WebAssembly and verify the frontend bundle for source/debug leakage. Android release verification checks package identity, SDK/ABI policy, signing in the signed release workflow, 16 KB native alignment, stripped native libraries, source/WASM leakage and internal game-core symbol leakage. macOS release verification keeps equivalent universal-architecture and leakage checks; Developer ID notarization remains a future signing step rather than a v0.6.1 blocker.

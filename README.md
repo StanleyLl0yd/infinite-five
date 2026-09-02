@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.1-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.6.0** · Web + PWA · GitHub Pages + signed native release artifacts. v0.5.4 hardened Android for current Google Play requirements with `minSdk 26`, `targetSdk 36`, `compileSdk 36`, pinned NDK r29, an AAB-first signed release flow, ARM-only release packages (`arm64-v8a` + `armeabi-v7a`), and enforced 16 KB page-size compatibility checks. v0.6.0 polishes mobile and board UX with cancellation-safe touch input, normalized wheel zoom, smooth recentering, latest-move animation, distinct haptics, Back/Escape-aware dialogs, 44 px mobile touch targets, compact-landscape handling and additional accessibility regression coverage. Android publication through RuStore remains the active distribution step. Google Play and App Store remain planned until the required developer access is available; macOS Developer ID signing/notarization also remains pending Apple signing access.
+Current published release: **v0.6.1** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.1 is the first native release built from the authoritative Rust game core after final trust-boundary and release hardening. Rust validates saved histories, move/coordinate bounds and external AI search limits; Rust dependencies are audited with RustSec; production web/native pipelines keep WASM optimization, source/debug leakage checks, Android R8/resource shrinking and 16 KB page compatibility. Android remains `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 and ARM-only (`arm64-v8a` + `armeabi-v7a`). macOS remains an ad-hoc signed universal DMG until Developer ID signing/notarization is available.
 
 ## 🎯 Rules
 
@@ -147,7 +147,7 @@ See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, 
 | Hosting | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-The authoritative Rust game core remains separate from Canvas rendering and platform-shell concerns. TypeScript owns UI orchestration, rendering caches, persistence and sharing, while rules, win detection and AI are tested in Rust and reused across supported targets.
+The authoritative Rust game core remains separate from Canvas rendering and platform-shell concerns. TypeScript owns UI orchestration, rendering caches, persistence and sharing, while rules, win detection and AI are tested in Rust and reused across supported targets. Core input hardening caps restored games at 2,000 moves and coordinates at ±1,000,000, bounds externally supplied AI time/depth requests without changing production difficulty settings, and rejects impossible post-win histories.
 
 ## 🗂 Architecture
 
@@ -209,6 +209,8 @@ Run the main local verification:
 npm audit --audit-level=high
 npm test
 npm run build
+cargo audit --file crates/game-core/Cargo.lock
+cargo audit --file src-tauri/Cargo.lock
 ```
 
 Run the dedicated AI Lab scenarios when tuning Hard or Expert:

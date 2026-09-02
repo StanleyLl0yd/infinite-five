@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.0-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.1-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.6.0** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.4 Android приведён к актуальной базе Google Play: `minSdk 26`, `targetSdk 36`, `compileSdk 36`, закреплён NDK r29, AAB сделан основным подписанным release-форматом, production ABI ограничены `arm64-v8a` + `armeabi-v7a`, а совместимость с 16 KB memory pages проверяется автоматически. В v0.6.0 улучшены мобильный UX и управление полем: отменённые touch-жесты больше не создают ход, нормализован wheel zoom, добавлены плавное центрирование, анимация последнего хода, разные виброотклики, корректная работа Back/Escape с диалогами, 44 px touch targets, компактный landscape-layout и дополнительные UX-регрессии. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
+Текущий опубликованный релиз: **v0.6.1** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.1 — первый нативный релиз, собранный из authoritative Rust game core после финального trust-boundary и release hardening. Rust проверяет историю партии, границы количества ходов/координат и внешние параметры AI-поиска; Rust-зависимости проверяются через RustSec; production web/native pipeline сохраняет WASM optimization, проверки утечек source/debug-артефактов, Android R8/resource shrinking и совместимость с 16 KB memory pages. Android остаётся на `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 и ARM-only ABI (`arm64-v8a` + `armeabi-v7a`). macOS остаётся universal DMG с ad-hoc подписью до появления Developer ID signing/notarization.
 
 ## 🎯 Правила
 
@@ -147,7 +147,7 @@ Canvas-поле можно сфокусировать и полностью ис
 | Хостинг | GitHub Pages |
 | CI/CD | GitHub Actions |
 
-Авторитетный Rust game core отделён от Canvas-отрисовки и платформенной оболочки. TypeScript отвечает за UI, render cache, persistence и sharing, а правила, проверка победы и AI тестируются в Rust и переиспользуются на поддерживаемых платформах.
+Авторитетный Rust game core отделён от Canvas-отрисовки и платформенной оболочки. TypeScript отвечает за UI, render cache, persistence и sharing, а правила, проверка победы и AI тестируются в Rust и переиспользуются на поддерживаемых платформах. На границе core восстановленная партия ограничена 2 000 ходами и координатами ±1 000 000; внешние time/depth параметры AI ограничиваются безопасными пределами без изменения production-настроек сложности, а невозможная история с ходами после победы отклоняется.
 
 ## 🗂 Архитектура
 
@@ -209,6 +209,8 @@ npm run dev
 npm audit --audit-level=high
 npm test
 npm run build
+cargo audit --file crates/game-core/Cargo.lock
+cargo audit --file src-tauri/Cargo.lock
 ```
 
 Для отдельного запуска AI Lab:
