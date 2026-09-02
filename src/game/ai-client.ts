@@ -81,20 +81,21 @@ export const requestAiMove = async (
   mark: Mark,
   difficulty: AiDifficulty
 ): Promise<Position> => {
+  const snapshot = [...moves];
   const seed = randomSeed();
   const aiWorker = getWorker();
   if (!aiWorker) {
-    return fallback(moves, mark, difficulty, seed);
+    return fallback(snapshot, mark, difficulty, seed);
   }
 
   const id = ++requestId;
-  const request: WorkerRequest = { id, moves: [...moves], mark, difficulty, seed };
+  const request: WorkerRequest = { id, moves: snapshot, mark, difficulty, seed };
   try {
     return await new Promise<Position>((resolve, reject) => {
       pending.set(id, { resolve, reject });
       aiWorker.postMessage(request);
     });
   } catch {
-    return fallback(moves, mark, difficulty, seed);
+    return fallback(snapshot, mark, difficulty, seed);
   }
 };

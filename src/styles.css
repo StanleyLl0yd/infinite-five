@@ -668,3 +668,76 @@ button.primary {
     overflow: hidden;
   }
 }
+
+.game-info-copy {
+  position: relative;
+  padding-right: 40px;
+}
+
+.about-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--mark-x);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.about-dialog {
+  width: min(470px, calc(100vw - 28px));
+}
+
+.about-dialog .about-meta,
+.about-dialog .about-developer,
+.about-dialog .about-rights {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.about-links {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.about-links a {
+  color: var(--mark-x);
+  font-size: 13px;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.about-links a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--mark-x) 45%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 620px) {
+  .game-info-copy {
+    padding-right: 36px;
+  }
+
+  .about-button {
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+    font-size: 13px;
+  }
+}
+
+@media (forced-colors: active) {
+  .about-links a:focus-visible {
+    outline-color: Highlight;
+  }
+}
