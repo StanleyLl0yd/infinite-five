@@ -1,0 +1,46 @@
+name: RuStore Screenshot Probe Temp
+
+on:
+  push:
+    branches:
+      - chore/rustore-screenshots-v060-temp
+    paths:
+      - .github/workflows/rustore-screenshot-probe-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chore/rustore-screenshots-v060-temp
+
+      - name: Capture signed v0.6.0 probe
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v0.6.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-metrics
+          script: bash scripts/capture-rustore-probe-temp.sh
+
+      - name: Commit probe
+        shell: bash
+        run: |
+          git config user.name "Stanley Lloyd"
+          git config user.email "131160519+StanleyLl0yd@users.noreply.github.com"
+          git add docs/assets/rustore/screenshots/probe
+          git commit -m "Capture v0.6.0 Android screenshot probe"
+          git push
