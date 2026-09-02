@@ -6,7 +6,7 @@ mod win;
 use std::fmt;
 
 use ai::choose_ai_move;
-use board::Board;
+use board::{validate_move_count, validate_position, Board};
 use serde::{Deserialize, Serialize};
 use types::{AiDifficulty, AiSearchDiagnostics, GameState, Mark, Move, Position};
 use win::get_winning_line;
@@ -141,6 +141,9 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
         } => {
             let mut board = board_from_moves(&moves)?;
             validate_turn(&board, mark)?;
+            validate_position(position).map_err(CoreError::InvalidMove)?;
+            validate_move_count(board.moves().len().saturating_add(1))
+                .map_err(CoreError::InvalidMove)?;
             if !board.place(position.x, position.y, mark) {
                 return Err(CoreError::Occupied);
             }
@@ -175,6 +178,8 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
         } => {
             let mut board = board_from_moves(&moves)?;
             validate_turn(&board, mark)?;
+            validate_move_count(board.moves().len().saturating_add(1))
+                .map_err(CoreError::InvalidMove)?;
             let (position, diagnostics) = choose_ai_move(
                 &mut board,
                 mark,
