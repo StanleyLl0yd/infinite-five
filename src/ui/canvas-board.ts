@@ -48,6 +48,9 @@ export class CanvasBoard {
   private emphasizeWin = false;
   private animationFrame: number | null = null;
   private renderFrame: number | null = null;
+  private cameraFrame: number | null = null;
+  private moveFrame: number | null = null;
+  private latestMoveProgress = 1;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -67,7 +70,7 @@ export class CanvasBoard {
     canvas.addEventListener('pointerdown', this.handlePointerDown);
     canvas.addEventListener('pointermove', this.handlePointerMove);
     canvas.addEventListener('pointerup', this.handlePointerUp);
-    canvas.addEventListener('pointercancel', this.handlePointerUp);
+    canvas.addEventListener('pointercancel', this.handlePointerCancel);
     canvas.addEventListener('wheel', this.handleWheel, { passive: false });
     canvas.addEventListener('keydown', this.handleKeyDown);
     canvas.addEventListener('focus', this.handleFocusChange);
@@ -90,7 +93,7 @@ export class CanvasBoard {
     }
     this.stopAnimation();
     this.emphasizeWin = true;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (this.prefersReducedMotion()) {
       this.winProgress = 1;
       this.render();
       return;
@@ -117,13 +120,60 @@ export class CanvasBoard {
     this.render();
   }
 
-  centerOn(position?: Position): void {
+  centerOn(position?: Position, animated = false): void {
     const target = position ?? { x: 0, y: 0 };
-    this.cameraX = target.x + 0.5;
-    this.cameraY = target.y + 0.5;
+    const targetX = target.x + 0.5;
+    const targetY = target.y + 0.5;
     this.keyboardCell = { x: target.x, y: target.y };
     this.announceKeyboardCell();
-    this.render();
+    this.stopCameraAnimation();
+
+    if (!animated || this.prefersReducedMotion()) {
+      this.cameraX = targetX;
+      this.cameraY = targetY;
+      this.render();
+      return;
+    }
+
+    const startX = this.cameraX;
+    const startY = this.cameraY;
+    const start = performance.now();
+    const duration = 220;
+    const frame = (now: number): void => {
+      const progress = clamp((now - start) / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      this.cameraX = startX + (targetX - startX) * eased;
+      this.cameraY = startY + (targetY - startY) * eased;
+      this.render();
+      if (progress < 1) {
+        this.cameraFrame = requestAnimationFrame(frame);
+      } else {
+        this.cameraFrame = null;
+      }
+    };
+    this.cameraFrame = requestAnimationFrame(frame);
+  }
+
+  animateLatestMove(duration = 180): void {
+    this.stopMoveAnimation();
+    if (this.board.getMoves().length === 0 || this.prefersReducedMotion()) {
+      this.latestMoveProgress = 1;
+      this.render();
+      return;
+    }
+
+    this.latestMoveProgress = 0;
+    const start = performance.now();
+    const frame = (now: number): void => {
+      this.latestMoveProgress = clamp((now - start) / duration, 0, 1);
+      this.render();
+      if (this.latestMoveProgress < 1) {
+        this.moveFrame = requestAnimationFrame(frame);
+      } else {
+        this.moveFrame = null;
+      }
+    };
+    this.moveFrame = requestAnimationFrame(frame);
   }
 
   render(): void {
@@ -235,9 +285,6 @@ export class CanvasBoard {
       Math.floor(top) - 1,
       Math.ceil(bottom) + 1
     );
-    const margin = this.cellSize * 0.24;
-    const radius = this.cellSize * 0.27;
-
     for (const move of moves) {
       const cellLeft = this.worldToScreenX(move.x);
       const cellTop = this.worldToScreenY(move.y);
@@ -254,6 +301,13 @@ export class CanvasBoard {
 
       const centerX = cellLeft + this.cellSize / 2;
       const centerY = cellTop + this.cellSize / 2;
+      const isLastMove = lastMove?.x === move.x && lastMove.y === move.y;
+      const progress = isLastMove
+        ? 1 - Math.pow(1 - this.latestMoveProgress, 3)
+        : 1;
+      const markScale = isLastMove ? 0.72 + 0.28 * progress : 1;
+      const margin = this.cellSize * (0.5 - 0.26 * markScale);
+      const radius = this.cellSize * 0.27 * markScale;
       this.context.strokeStyle = move.mark === 'X' ? palette.x : palette.o;
       this.context.lineWidth = Math.max(2.5, this.cellSize * 0.07);
       this.context.lineCap = 'round';
@@ -379,6 +433,8 @@ export class CanvasBoard {
 
   private handlePointerDown = (event: PointerEvent): void => {
     const point = this.eventPoint(event);
+    this.stopCameraAnimation();
+    this.stopMoveAnimation(true);
     this.canvas.focus({ preventScroll: true });
     this.canvas.setPointerCapture(event.pointerId);
     this.pointers.set(event.pointerId, point);
@@ -403,7 +459,9 @@ export class CanvasBoard {
     this.pointers.set(event.pointerId, point);
 
     if (this.pointers.size === 1 && this.lastPointer && !this.multiPointerGesture) {
-      const threshold = event.pointerType === 'touch' ? 10 : 5;
+      const threshold = event.pointerType === 'touch'
+        ? clamp(this.cellSize * 0.18, 8, 14)
+        : 5;
       const distance = this.pointerStart
         ? Math.hypot(point.x - this.pointerStart.x, point.y - this.pointerStart.y)
         : 0;
@@ -413,6 +471,7 @@ export class CanvasBoard {
       }
 
       this.moved = true;
+      this.canvas.dataset.dragging = 'true';
       const dx = point.x - this.lastPointer.x;
       const dy = point.y - this.lastPointer.y;
       this.cameraX -= dx / this.cellSize;
@@ -444,7 +503,13 @@ export class CanvasBoard {
   };
 
   private handlePointerUp = (event: PointerEvent): void => {
-    const point = this.pointers.get(event.pointerId) ?? this.eventPoint(event);
+    const releasePoint = this.eventPoint(event);
+    const point = event.pointerType === 'touch' && this.pointerStart
+      ? {
+          x: (this.pointerStart.x + releasePoint.x) / 2,
+          y: (this.pointerStart.y + releasePoint.y) / 2
+        }
+      : releasePoint;
     const singlePointerRelease = this.pointers.size === 1;
 
     if (singlePointerRelease && !this.moved && !this.multiPointerGesture) {
@@ -454,24 +519,24 @@ export class CanvasBoard {
       this.render();
     }
 
-    this.pointers.delete(event.pointerId);
+    this.releasePointer(event.pointerId);
+  };
 
-    if (this.pointers.size === 1) {
-      this.lastPointer = [...this.pointers.values()][0];
-      this.resetPinchState();
-    } else if (this.pointers.size === 0) {
-      this.pointerStart = null;
-      this.lastPointer = null;
-      this.moved = false;
-      this.multiPointerGesture = false;
-      this.resetPinchState();
-    }
+  private handlePointerCancel = (event: PointerEvent): void => {
+    this.releasePointer(event.pointerId);
   };
 
   private handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
+    this.stopCameraAnimation();
+    this.stopMoveAnimation(true);
     const point = this.eventPoint(event);
-    this.zoomAt(point, this.cellSize * Math.exp(-event.deltaY * 0.0012));
+    const deltaUnit = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? Math.max(1, this.height)
+        : 1;
+    this.zoomAt(point, this.cellSize * Math.exp(-event.deltaY * deltaUnit * 0.0012));
     this.requestRender();
   };
 
@@ -526,10 +591,46 @@ export class CanvasBoard {
     this.render();
   };
 
+  private prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
   private stopAnimation(): void {
     if (this.animationFrame !== null) {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = null;
+    }
+  }
+
+  private stopCameraAnimation(): void {
+    if (this.cameraFrame !== null) {
+      cancelAnimationFrame(this.cameraFrame);
+      this.cameraFrame = null;
+    }
+  }
+
+  private stopMoveAnimation(finish = false): void {
+    if (this.moveFrame !== null) {
+      cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+    }
+    if (finish) this.latestMoveProgress = 1;
+  }
+
+  private releasePointer(pointerId: number): void {
+    this.pointers.delete(pointerId);
+    if (this.pointers.size === 1) {
+      this.lastPointer = [...this.pointers.values()][0];
+      this.resetPinchState();
+      return;
+    }
+    if (this.pointers.size === 0) {
+      this.pointerStart = null;
+      this.lastPointer = null;
+      this.moved = false;
+      this.multiPointerGesture = false;
+      delete this.canvas.dataset.dragging;
+      this.resetPinchState();
     }
   }
 

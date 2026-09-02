@@ -201,6 +201,43 @@ let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null
 let toastTimer: number | null = null;
 let view: CanvasBoard;
 
+const appDialogs = [aboutDialog, resultDialog, resumeDialog, historyDialog, settingsDialog] as const;
+const dialogStateKey = 'infiniteFiveDialog';
+let dialogAfterBack: (() => void) | null = null;
+
+const currentDialogState = (): string | null => {
+  if (!history.state || typeof history.state !== 'object') return null;
+  const value = (history.state as Record<string, unknown>)[dialogStateKey];
+  return typeof value === 'string' ? value : null;
+};
+
+const showDialog = (dialog: HTMLDialogElement): void => {
+  if (dialog.open) return;
+  const state = history.state && typeof history.state === 'object'
+    ? history.state as Record<string, unknown>
+    : {};
+  history.pushState({ ...state, [dialogStateKey]: dialog.id }, '');
+  dialog.showModal();
+};
+
+const closeDialog = (dialog: HTMLDialogElement, after?: () => void): void => {
+  if (!dialog.open) {
+    after?.();
+    return;
+  }
+  dialog.close();
+  if (currentDialogState() === dialog.id) {
+    dialogAfterBack = after ?? null;
+    history.back();
+  } else {
+    after?.();
+  }
+};
+
+const vibrate = (pattern: number | number[]): void => {
+  if (settings.vibration && 'vibrate' in navigator) navigator.vibrate(pattern);
+};
+
 const isMark = (value: unknown): value is Mark => value === 'X' || value === 'O';
 const isMode = (value: unknown): value is GameMode => value === 'ai' || value === 'local';
 const isDifficulty = (value: unknown): value is AiDifficulty =>
@@ -294,6 +331,11 @@ const applyTranslations = (): void => {
   historyButton.querySelector('.button-label')!.textContent = text.history;
   settingsButton.querySelector('.button-label')!.textContent = text.settings;
   newGameButton.querySelector('.button-label')!.textContent = text.newGame;
+  centerButton.setAttribute('aria-label', text.center);
+  undoButton.setAttribute('aria-label', text.undo);
+  historyButton.setAttribute('aria-label', text.history);
+  settingsButton.setAttribute('aria-label', text.settings);
+  newGameButton.setAttribute('aria-label', text.newGame);
   resultDialogPrompt.textContent = text.resultPrompt;
   resultCloseButton.textContent = text.close;
   resultNewGameButton.textContent = text.newGame;
@@ -583,8 +625,7 @@ const renderHistory = (): void => {
       replayButton.addEventListener('click', () => {
         const moves = decodeSharedGame(entry.replay ?? '');
         if (!moves) return;
-        historyDialog.close();
-        enterReplay(moves, true, 0);
+        closeDialog(historyDialog, () => enterReplay(moves, true, 0));
       });
       row.append(replayButton);
     } else {
@@ -657,9 +698,9 @@ const revertRecordedResult = (): void => {
 
 const playResultFeedback = (): void => {
   if (!winner || replay) return;
-  if (settings.vibration && 'vibrate' in navigator) {
-    navigator.vibrate(settings.mode === 'ai' && winner !== humanMark ? [45, 45, 70] : [45, 35, 45]);
-  }
+  vibrate(settings.mode === 'ai' && winner !== humanMark
+    ? [26, 38, 65]
+    : [18, 24, 18, 24, 42]);
   if (!settings.sound) return;
 
   try {
@@ -685,14 +726,14 @@ const cancelResultPresentation = (): void => {
     window.clearTimeout(resultTimer);
     resultTimer = null;
   }
-  if (resultDialog.open) resultDialog.close();
+  if (resultDialog.open) closeDialog(resultDialog);
 };
 
 const showResultDialog = (): void => {
   if (!winner || replay || resultDialog.open) return;
   resultDialogTitle.textContent = getResultText();
   resultDialogDetails.textContent = interpolate(text.resultMoves, { moves: board.getMoves().length });
-  resultDialog.showModal();
+  showDialog(resultDialog);
 };
 
 const presentResult = (): void => {
@@ -720,6 +761,7 @@ const applyMove = (position: Position, mark: Mark): boolean => {
 
   saveGame();
   view.setWinningLine(winningLine);
+  view.animateLatestMove();
   refreshUi();
   if (winner) presentResult();
   return true;
@@ -762,7 +804,7 @@ const scheduleAiTurn = (): void => {
 const resetGame = (): void => {
   cancelAiTurn();
   cancelResultPresentation();
-  if (resumeDialog.open) resumeDialog.close();
+  if (resumeDialog.open) closeDialog(resumeDialog);
   replay = null;
   document.documentElement.dataset.replay = 'false';
   board.clear();
@@ -780,9 +822,15 @@ const resetGame = (): void => {
 };
 
 const handleCellClick = (position: Position): void => {
-  if (winner || replay || aiThinking || board.get(position.x, position.y)) return;
+  if (winner || replay || aiThinking) return;
+  if (board.get(position.x, position.y)) {
+    vibrate([7, 28, 7]);
+    return;
+  }
   if (settings.mode === 'ai' && currentMark !== humanMark) return;
-  if (applyMove(position, currentMark) && settings.mode === 'ai' && !winner) scheduleAiTurn();
+  if (!applyMove(position, currentMark)) return;
+  if (!winner) vibrate(9);
+  if (settings.mode === 'ai' && !winner) scheduleAiTurn();
 };
 
 const restoreReplayPosition = (): void => {
@@ -868,9 +916,10 @@ const saveDialogSettings = (): void => {
   applyTranslations();
   applyTheme();
   view.render();
-  settingsDialog.close();
-  refreshUi();
-  if (settings.mode === 'ai' && previousSide !== settings.humanSide) resetGame();
+  closeDialog(settingsDialog, () => {
+    refreshUi();
+    if (settings.mode === 'ai' && previousSide !== settings.humanSide) resetGame();
+  });
 };
 
 loadSettings();
@@ -892,7 +941,7 @@ if (sharedMoves) {
   enterReplay(sharedMoves, true, sharedMoves.length);
 } else if (loadedSavedGame && board.getMoves().length > 0 && !winner) {
   resumeDialogPrompt.textContent = interpolate(text.resumePrompt, { moves: board.getMoves().length });
-  resumeDialog.showModal();
+  showDialog(resumeDialog);
 } else if (winner) {
   recordResult();
   saveGame();
@@ -903,7 +952,7 @@ if (sharedMoves) {
 
 centerButton.addEventListener('click', () => {
   const moves = board.getMoves();
-  view.centerOn(moves[moves.length - 1]);
+  view.centerOn(moves[moves.length - 1], true);
 });
 
 themeButton.addEventListener('click', () => {
@@ -915,34 +964,37 @@ themeButton.addEventListener('click', () => {
 
 historyButton.addEventListener('click', () => {
   renderHistory();
-  historyDialog.showModal();
+  showDialog(historyDialog);
 });
-historyCloseButton.addEventListener('click', () => historyDialog.close());
+historyCloseButton.addEventListener('click', () => closeDialog(historyDialog));
 
-aboutButton.addEventListener('click', () => aboutDialog.showModal());
-aboutCloseButton.addEventListener('click', () => aboutDialog.close());
+aboutButton.addEventListener('click', () => showDialog(aboutDialog));
+aboutCloseButton.addEventListener('click', () => closeDialog(aboutDialog));
 
 settingsButton.addEventListener('click', () => {
   syncSettingsDialog();
-  settingsDialog.showModal();
+  showDialog(settingsDialog);
 });
 
 settingsSaveButton.addEventListener('click', saveDialogSettings);
-settingsCloseButton.addEventListener('click', () => settingsDialog.close());
+settingsCloseButton.addEventListener('click', () => closeDialog(settingsDialog));
 
 newGameButton.addEventListener('click', resetGame);
-resultNewGameButton.addEventListener('click', resetGame);
-resultReplayButton.addEventListener('click', () => enterReplay(board.getMoves(), false, 0));
+resultNewGameButton.addEventListener('click', () => closeDialog(resultDialog, resetGame));
+resultReplayButton.addEventListener('click', () =>
+  closeDialog(resultDialog, () => enterReplay(board.getMoves(), false, 0))
+);
 resultShareButton.addEventListener('click', () => void shareGame());
-resultCloseButton.addEventListener('click', () => resultDialog.close());
+resultCloseButton.addEventListener('click', () => closeDialog(resultDialog));
 
 resumeContinueButton.addEventListener('click', () => {
-  resumeDialog.close();
-  const lastMove = board.getMoves()[board.getMoves().length - 1];
-  view.centerOn(lastMove);
-  if (settings.mode === 'ai' && currentMark === computerMark()) scheduleAiTurn();
+  closeDialog(resumeDialog, () => {
+    const lastMove = board.getMoves()[board.getMoves().length - 1];
+    view.centerOn(lastMove);
+    if (settings.mode === 'ai' && currentMark === computerMark()) scheduleAiTurn();
+  });
 });
-resumeNewGameButton.addEventListener('click', resetGame);
+resumeNewGameButton.addEventListener('click', () => closeDialog(resumeDialog, resetGame));
 
 undoButton.addEventListener('click', () => {
   if (settings.mode !== 'ai' || !hasHumanMove() || replay) return;
@@ -998,6 +1050,21 @@ replayNextButton.addEventListener('click', () => {
 });
 replayShareButton.addEventListener('click', () => void shareGame());
 replayExitButton.addEventListener('click', exitReplay);
+
+for (const dialog of appDialogs) {
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeDialog(dialog);
+  });
+}
+
+window.addEventListener('popstate', () => {
+  const openDialog = appDialogs.find((dialog) => dialog.open);
+  if (openDialog) openDialog.close();
+  const after = dialogAfterBack;
+  dialogAfterBack = null;
+  after?.();
+});
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();

@@ -18,11 +18,11 @@
         </div>
         <div id="status" class="status" role="status" aria-live="polite">Your turn</div>
         <div class="actions">
-          <button id="centerButton" type="button">
+          <button id="centerButton" type="button" aria-label="Center">
             <span class="button-icon" aria-hidden="true">◎</span>
             <span class="button-label">Center</span>
           </button>
-          <button id="undoButton" type="button">
+          <button id="undoButton" type="button" aria-label="Undo">
             <span class="button-icon" aria-hidden="true">↶</span>
             <span class="button-label">Undo</span>
           </button>
@@ -30,15 +30,15 @@
             <span class="button-icon" aria-hidden="true">◐</span>
             <span class="button-label">Theme</span>
           </button>
-          <button id="historyButton" type="button">
+          <button id="historyButton" type="button" aria-label="History">
             <span class="button-icon" aria-hidden="true">☷</span>
             <span class="button-label">History</span>
           </button>
-          <button id="settingsButton" type="button">
+          <button id="settingsButton" type="button" aria-label="Settings">
             <span class="button-icon" aria-hidden="true">⚙</span>
             <span class="button-label">Settings</span>
           </button>
-          <button id="newGameButton" type="button" class="primary">
+          <button id="newGameButton" type="button" class="primary" aria-label="New game">
             <span class="button-icon" aria-hidden="true">＋</span>
             <span class="button-label">New game</span>
           </button>
@@ -50,9 +50,9 @@
           <div class="game-info-copy">
             <h1 id="gameInfoTitle">Five in a row on an infinite board</h1>
             <p id="gameInfoRules">
-              X moves first. Be the first to make 5 or more of your marks in one horizontal,
-              vertical or diagonal line. Drag the board to move it and use the mouse wheel or
-              pinch to zoom.
+              X moves first. Tap or click a cell to move. Be the first to make 5 or more of
+              your marks in one horizontal, vertical or diagonal line. Drag the board to move it
+              and use the mouse wheel or pinch to zoom.
             </p>
             <button id="aboutButton" class="about-button" type="button" aria-label="About" title="About">
               <span aria-hidden="true">i</span>

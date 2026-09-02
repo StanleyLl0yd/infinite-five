@@ -9,7 +9,7 @@ export const translations = {
     metaDescription: 'Infinite Five — five in a row on an infinite board.',
     infoTitle: 'Five in a row on an infinite board',
     infoRules:
-      'X moves first. Be the first to make 5 or more of your marks in one horizontal, vertical or diagonal line. Drag the board to move it and use the mouse wheel or pinch to zoom.',
+      'X moves first. Tap or click a cell to move. Be the first to make 5 or more of your marks in one horizontal, vertical or diagonal line. Drag the board to move it and use the mouse wheel or pinch to zoom.',
     aboutLabel: 'About',
     aboutTitle: 'About Infinite Five',
     aboutIntro: 'Five in a row on an infinite board. Play locally or challenge the computer from Easy to Expert.',
@@ -98,7 +98,7 @@ export const translations = {
     metaDescription: 'Infinite Five — пять в ряд на бесконечном поле.',
     infoTitle: 'Пять в ряд на бесконечном поле',
     infoRules:
-      'X ходит первым. Побеждает тот, кто первым соберёт 5 или больше своих знаков подряд по горизонтали, вертикали или диагонали. Перетаскивайте поле для перемещения, масштабируйте колесом мыши или двумя пальцами.',
+      'X ходит первым. Коснитесь клетки или щёлкните по ней, чтобы сделать ход. Побеждает тот, кто первым соберёт 5 или больше своих знаков подряд по горизонтали, вертикали или диагонали. Перетаскивайте поле для перемещения, масштабируйте колесом мыши или двумя пальцами.',
     aboutLabel: 'О приложении',
     aboutTitle: 'Об Infinite Five',
     aboutIntro: 'Пять в ряд на бесконечном поле. Играйте вдвоём или против компьютера от лёгкого уровня до эксперта.',
