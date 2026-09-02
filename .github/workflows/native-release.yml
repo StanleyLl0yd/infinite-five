@@ -21,7 +21,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Native release preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      should_build: ${{ steps.release.outputs.should_build }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          persist-credentials: false
+
+      - name: Decide whether native artifacts are needed
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v$VERSION"
+          SHOULD_BUILD=true
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
+            SOURCE_SHA="$(git rev-parse HEAD)"
+            if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
+              SHOULD_BUILD=false
+            fi
+          fi
+          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
+
   android:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
     name: Signed Android AAB and supplemental APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -209,6 +241,8 @@ jobs:
           retention-days: 30
 
   macos:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
     name: Ad-hoc signed universal macOS DMG
     runs-on: macos-15
     timeout-minutes: 60
