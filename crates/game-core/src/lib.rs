@@ -98,7 +98,7 @@ fn state_from_board(board: &Board) -> GameState {
     } else {
         None
     };
-    let next_mark = if board.moves().len() % 2 == 0 {
+    let next_mark = if board.moves().len().is_multiple_of(2) {
         Mark::X
     } else {
         Mark::O
