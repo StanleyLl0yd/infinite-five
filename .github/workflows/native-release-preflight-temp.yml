@@ -1,0 +1,45 @@
+name: Guard Native Release Rebuilds
+
+on:
+  push:
+    branches: [hardening/rust-game-core]
+    paths:
+      - .github/workflows/native-release-preflight-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: hardening/rust-game-core
+      - name: Add native release preflight
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/native-release.yml')
+          text = path.read_text(encoding='utf-8')
+          old = '''jobs:\n  android:\n    name: Signed Android AAB and supplemental APK'''
+          new = '''jobs:\n  preflight:\n    name: Native release preflight\n    runs-on: ubuntu-24.04\n    timeout-minutes: 5\n    outputs:\n      should_build: ${{ steps.release.outputs.should_build }}\n    steps:\n      - name: Checkout release source\n        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n        with:\n          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}\n          persist-credentials: false\n\n      - name: Decide whether native artifacts are needed\n        id: release\n        env:\n          GH_TOKEN: ${{ github.token }}\n        run: |\n          VERSION="$(node -p "require('./package.json').version")"\n          TAG="v$VERSION"\n          SHOULD_BUILD=true\n          if [[ "$GITHUB_EVENT_NAME" == "push" ]] && gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then\n            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"\n            SOURCE_SHA="$(git rev-parse HEAD)"\n            if [[ "$TAG_SHA" != "$SOURCE_SHA" ]]; then\n              SHOULD_BUILD=false\n            fi\n          fi\n          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"\n\n  android:\n    needs: preflight\n    if: needs.preflight.outputs.should_build == 'true'\n    name: Signed Android AAB and supplemental APK'''
+          if old not in text:
+              raise SystemExit('android insertion point not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  macos:\n    name: Ad-hoc signed universal macOS DMG'''
+          new = '''  macos:\n    needs: preflight\n    if: needs.preflight.outputs.should_build == 'true'\n    name: Ad-hoc signed universal macOS DMG'''
+          if old not in text:
+              raise SystemExit('macOS insertion point not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm .github/workflows/native-release-preflight-temp.yml
+          git config user.name "Stanley Lloyd"
+          git config user.email "131160519+StanleyLl0yd@users.noreply.github.com"
+          git add .github/workflows/native-release.yml .github/workflows/native-release-preflight-temp.yml
+          git commit -m "Skip native rebuilds for existing release sources"
+          git push origin HEAD:hardening/rust-game-core
