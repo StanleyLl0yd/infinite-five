@@ -12,7 +12,7 @@
     "build:core": "node scripts/build-game-core-wasm.mjs --require-opt",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:ai-lab": "cargo test --manifest-path crates/game-core/Cargo.toml expert_and_hard_self_play_remains_legal representative_expert_position_reports_search_diagnostics -- --nocapture",
+    "test:ai-lab": "cargo test --manifest-path crates/game-core/Cargo.toml expert_and_hard_self_play_remains_legal -- --nocapture && cargo test --manifest-path crates/game-core/Cargo.toml representative_expert_position_reports_search_diagnostics -- --nocapture",
     "test:core": "cargo test --manifest-path crates/game-core/Cargo.toml",
     "typecheck": "tsc --noEmit --pretty false",
     "tauri": "tauri",
