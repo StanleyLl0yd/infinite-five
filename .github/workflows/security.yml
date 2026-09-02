@@ -48,3 +48,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  rustsec:
+    name: RustSec
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install verified cargo-audit
+        shell: bash
+        run: |
+          VERSION="0.22.2"
+          ARCHIVE="cargo-audit-x86_64-unknown-linux-gnu-v${VERSION}.tgz"
+          URL="https://github.com/RustSec/rustsec/releases/download/cargo-audit/v${VERSION}/${ARCHIVE}"
+          curl --fail --location --silent --show-error --output "$RUNNER_TEMP/$ARCHIVE" "$URL"
+          printf '%s  %s\n' 'ab28a1bdb54db4d5d8ad5981cf1f959410370b3d28250dbd35f6a44248620e39' "$RUNNER_TEMP/$ARCHIVE" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/cargo-audit" "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP/cargo-audit"
+          AUDIT_BIN="$(find "$RUNNER_TEMP/cargo-audit" -type f -name cargo-audit -print -quit)"
+          test -f "$AUDIT_BIN"
+          install -m 0755 "$AUDIT_BIN" "$RUNNER_TEMP/bin/cargo-audit"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Audit Rust game-core dependencies
+        run: cargo audit --file crates/game-core/Cargo.lock
+
+      - name: Audit native Rust dependencies
+        run: cargo audit --file src-tauri/Cargo.lock

@@ -9,6 +9,10 @@ use crate::{
 };
 
 const WIN_SCORE: f64 = 1_000_000_000.0;
+const MIN_AI_TIME_BUDGET_MS: u64 = 20;
+const MAX_AI_TIME_BUDGET_MS: u64 = 5_000;
+const DEFAULT_EXPERT_DEPTH: u32 = 5;
+const MAX_AI_DEPTH: u32 = 6;
 const DIRECTIONS: [(i64, i64); 4] = [(1, 0), (0, 1), (1, 1), (1, -1)];
 
 #[derive(Clone, Copy, Debug)]
@@ -923,6 +927,27 @@ fn choose_expert(
     }
 }
 
+fn normalize_ai_parameters(
+    difficulty: AiDifficulty,
+    time_budget_ms: Option<u64>,
+    max_depth: Option<u32>,
+) -> (u64, u32) {
+    let default_budget = match difficulty {
+        AiDifficulty::Expert => 1_200,
+        AiDifficulty::Hard => 420,
+        AiDifficulty::Easy | AiDifficulty::Medium => 140,
+    };
+    (
+        time_budget_ms
+            .unwrap_or(default_budget)
+            .clamp(MIN_AI_TIME_BUDGET_MS, MAX_AI_TIME_BUDGET_MS),
+        max_depth
+            .unwrap_or(DEFAULT_EXPERT_DEPTH)
+            .clamp(1, MAX_AI_DEPTH),
+    )
+}
+
+
 pub fn choose_ai_move(
     board: &mut Board,
     mark: Mark,
@@ -946,12 +971,7 @@ pub fn choose_ai_move(
     }
 
     let seed = seed.unwrap_or_else(|| seed_from_board(board));
-    let default_budget = match difficulty {
-        AiDifficulty::Expert => 1_200,
-        AiDifficulty::Hard => 420,
-        AiDifficulty::Easy | AiDifficulty::Medium => 140,
-    };
-    let budget = time_budget_ms.unwrap_or(default_budget).max(20);
+    let (budget, max_depth) = normalize_ai_parameters(difficulty, time_budget_ms, max_depth);
     let mut context = SearchContext {
         deadline_ms: now_ms() + budget as f64,
         seed,
@@ -966,7 +986,7 @@ pub fn choose_ai_move(
         AiDifficulty::Medium => choose_medium(board, mark, seed),
         AiDifficulty::Hard => choose_hard(board, mark, &mut context),
         AiDifficulty::Expert => {
-            let choice = choose_expert(board, mark, &mut context, max_depth.unwrap_or(5).max(1));
+            let choice = choose_expert(board, mark, &mut context, max_depth);
             completed_depth = choice.completed_depth;
             root_candidates = choice.root_candidates;
             choice.position
@@ -1009,6 +1029,35 @@ mod tests {
         assert_eq!(contiguous_score(2, 1), 650.0);
         assert_eq!(contiguous_score(1, 2), 60.0);
         assert_eq!(contiguous_score(1, 1), 10.0);
+    }
+
+    #[test]
+    fn ai_time_budget_is_clamped_at_trust_boundaries() {
+        assert_eq!(normalize_ai_parameters(AiDifficulty::Expert, Some(0), Some(5)).0, 20);
+        assert_eq!(
+            normalize_ai_parameters(AiDifficulty::Expert, Some(2_600), Some(5)).0,
+            2_600
+        );
+        assert_eq!(
+            normalize_ai_parameters(AiDifficulty::Expert, Some(5_000), Some(5)).0,
+            5_000
+        );
+        assert_eq!(
+            normalize_ai_parameters(AiDifficulty::Expert, Some(u64::MAX), Some(5)).0,
+            5_000
+        );
+    }
+
+    #[test]
+    fn ai_depth_is_clamped_without_changing_expert_production_depth() {
+        assert_eq!(normalize_ai_parameters(AiDifficulty::Expert, None, None).1, 5);
+        assert_eq!(normalize_ai_parameters(AiDifficulty::Expert, None, Some(0)).1, 1);
+        assert_eq!(normalize_ai_parameters(AiDifficulty::Expert, None, Some(5)).1, 5);
+        assert_eq!(normalize_ai_parameters(AiDifficulty::Expert, None, Some(6)).1, 6);
+        assert_eq!(
+            normalize_ai_parameters(AiDifficulty::Expert, None, Some(100_000)).1,
+            6
+        );
     }
 
     #[test]

@@ -40,7 +40,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          TAG="v$VERSION"
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}"
+          TAG="${TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
           SHOULD_BUILD=true
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
@@ -218,6 +220,10 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           BADGING="$("$AAPT" dump badging "$APK")"
           grep -F "package: name='com.sl.infinitefive'" <<<"$BADGING"
+          grep -F "versionName='${VERSION}'" <<<"$BADGING"
+          VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" <<<"$BADGING" | head -n 1)"
+          test -n "$VERSION_CODE"
+          test "$VERSION_CODE" -gt 0
           grep -F "sdkVersion:'26'" <<<"$BADGING"
           grep -F "targetSdkVersion:'36'" <<<"$BADGING"
           EXPECTED_APK_CERT="$(printf '%s' "$ANDROID_APP_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
@@ -228,7 +234,10 @@ jobs:
           ACTUAL_AAB_CERT="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           test "$ACTUAL_AAB_CERT" = "$EXPECTED_AAB_CERT"
           bash scripts/verify-android-native.sh "$AAB" "$APK"
-          rm -f src-tauri/gen/android/keystore.properties "$KEYSTORE_PATH"
+
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f src-tauri/gen/android/keystore.properties "${KEYSTORE_PATH:-}"
 
       - name: Upload signed Android artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -331,7 +340,7 @@ jobs:
         working-directory: release
         run: sha256sum Infinite-Five-* > SHA256SUMS.txt
 
-      - name: Wait for GitHub Release and upload assets
+      - name: Wait for matching GitHub Release and upload immutable assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.android.outputs.tag }}
@@ -341,12 +350,19 @@ jobs:
             if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
               TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
               test "$TAG_SHA" = "$SOURCE_SHA"
+              for asset in \
+                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
+                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
+                "Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
+                "SHA256SUMS.txt"; do
+                test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(. == \"$asset\")] | length")" = "0"
+              done
               gh release upload "$TAG" \
                 "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
                 "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
                 "release/Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
                 release/SHA256SUMS.txt \
-                --repo "$GITHUB_REPOSITORY" --clobber
+                --repo "$GITHUB_REPOSITORY"
               exit 0
             fi
             sleep 10

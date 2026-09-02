@@ -6,7 +6,7 @@ mod win;
 use std::fmt;
 
 use ai::choose_ai_move;
-use board::Board;
+use board::{validate_move_count, validate_position, Board};
 use serde::{Deserialize, Serialize};
 use types::{AiDifficulty, AiSearchDiagnostics, GameState, Mark, Move, Position};
 use win::get_winning_line;
@@ -141,6 +141,9 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
         } => {
             let mut board = board_from_moves(&moves)?;
             validate_turn(&board, mark)?;
+            validate_position(position).map_err(CoreError::InvalidMove)?;
+            validate_move_count(board.moves().len().saturating_add(1))
+                .map_err(CoreError::InvalidMove)?;
             if !board.place(position.x, position.y, mark) {
                 return Err(CoreError::Occupied);
             }
@@ -175,6 +178,8 @@ fn dispatch(request: CoreRequest) -> Result<CoreResponse, CoreError> {
         } => {
             let mut board = board_from_moves(&moves)?;
             validate_turn(&board, mark)?;
+            validate_move_count(board.moves().len().saturating_add(1))
+                .map_err(CoreError::InvalidMove)?;
             let (position, diagnostics) = choose_ai_move(
                 &mut board,
                 mark,
@@ -352,6 +357,68 @@ mod tests {
         let parsed = serde_json::from_str::<serde_json::Value>(&wrong_turn).unwrap();
         assert_eq!(parsed["ok"], false);
         assert_eq!(parsed["error"], "Invalid turn");
+    }
+
+    #[test]
+    fn dispatch_enforces_state_limits_on_all_entry_points() {
+        let invalid = Move {
+            x: 1_000_001,
+            y: 0,
+            mark: Mark::X,
+        };
+
+        for request in [
+            CoreRequest::State { moves: vec![invalid] },
+            CoreRequest::Undo {
+                moves: vec![invalid],
+                count: 1,
+            },
+            CoreRequest::AiMove {
+                moves: vec![invalid],
+                mark: Mark::O,
+                difficulty: AiDifficulty::Medium,
+                seed: Some(1),
+                time_budget_ms: Some(140),
+                max_depth: None,
+            },
+        ] {
+            assert_eq!(dispatch(request).unwrap_err().to_string(), "Invalid saved game");
+        }
+
+        let out_of_bounds = dispatch(CoreRequest::ApplyMove {
+            moves: Vec::new(),
+            position: Position { x: 1_000_001, y: 0 },
+            mark: Mark::X,
+        });
+        assert_eq!(out_of_bounds.unwrap_err().to_string(), "Invalid coordinate");
+    }
+
+    #[test]
+    fn dispatch_prevents_moves_beyond_the_core_move_limit() {
+        let moves = (0..2_000)
+            .map(|index| Move {
+                x: index,
+                y: 0,
+                mark: if index % 2 == 0 { Mark::X } else { Mark::O },
+            })
+            .collect::<Vec<_>>();
+
+        let apply = dispatch(CoreRequest::ApplyMove {
+            moves: moves.clone(),
+            position: Position { x: 10_000, y: 0 },
+            mark: Mark::X,
+        });
+        assert_eq!(apply.unwrap_err().to_string(), "Move limit exceeded");
+
+        let ai = dispatch(CoreRequest::AiMove {
+            moves,
+            mark: Mark::X,
+            difficulty: AiDifficulty::Easy,
+            seed: Some(1),
+            time_budget_ms: Some(140),
+            max_depth: None,
+        });
+        assert_eq!(ai.unwrap_err().to_string(), "Move limit exceeded");
     }
 
     #[test]
