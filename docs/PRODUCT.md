@@ -4,7 +4,7 @@
 
 Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. The TypeScript/Vite implementation is the shared game implementation for the browser and native application shells so platform expansion does not create separate game engines.
 
-Current published release: **v0.5.4**.
+Current published release: **v0.6.0**.
 
 ## Core rules
 
@@ -32,12 +32,12 @@ The current published web build provides:
 - X, O or random human side selection against AI;
 - clear five-in-a-row win detection;
 - last-move indication, animated winning-line highlight and post-game emphasis;
-- drag navigation with touch movement thresholds that reduce accidental moves;
-- mouse-wheel and pinch zoom;
+- cancellation-safe touch navigation with scale-aware movement thresholds that reduce accidental moves;
+- normalized mouse-wheel zoom across pixel/line/page delta modes and stable pinch zoom;
 - keyboard board navigation with arrow keys, Enter/Space placement, Home return and keyboard zoom;
 - visible focus state and localized screen-reader guidance for keyboard board interaction;
-- reduced-motion handling for winning-line animation;
-- return to the latest move on desktop and mobile;
+- reduced-motion handling for winning-line, latest-move and recenter animations;
+- smooth return to the latest move on desktop and mobile, with an immediate reduced-motion fallback;
 - new game and AI undo;
 - automatic unfinished-game persistence with an explicit continue prompt;
 - cumulative AI win/loss statistics with win rate;
@@ -45,11 +45,12 @@ The current published web build provides:
 - local history replay when a game fits the compact replay format;
 - system, light and dark themes;
 - automatic or manually selected Russian/English UI;
-- optional result sound and vibration;
+- optional result sound and distinct move, invalid-cell and result vibration feedback;
 - game replay and compact URL sharing without a backend;
+- Back/Escape-aware modal navigation for About, Settings, History, Resume and Result dialogs;
 - visible-window Canvas rendering that avoids scanning the complete move history on every frame;
 - animation-frame redraw coalescing for high-frequency pan and zoom input;
-- responsive mobile layout with persistent compact controls;
+- responsive mobile layout with persistent 44 px controls, a dedicated compact toolbar row and short-landscape handling;
 - installable PWA with standard and maskable icons, offline operation and update notification;
 - GitHub Pages deployment.
 
@@ -59,7 +60,7 @@ Online multiplayer remains outside the current release and may be added later wi
 
 The browser/PWA remains a first-class target. Native applications use Tauri 2 around the same compiled frontend and game core rather than separate Kotlin, Swift or desktop implementations.
 
-Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 added the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Release v0.5.3 added a compact localized About surface with version/developer/legal links. Release v0.5.4 hardens Android to `minSdk 26`, target/compile API 36, pinned NDK r29, an AAB-first signed release flow, ARM-only production ABIs (`arm64-v8a` + `armeabi-v7a`), and mandatory 16 KB ELF/APK/AAB compatibility verification. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
+Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 added the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Release v0.5.3 added a compact localized About surface with version/developer/legal links. Release v0.5.4 hardens Android to `minSdk 26`, target/compile API 36, pinned NDK r29, an AAB-first signed release flow, ARM-only production ABIs (`arm64-v8a` + `armeabi-v7a`), and mandatory 16 KB ELF/APK/AAB compatibility verification. Release v0.6.0 hardens mobile/touch interaction, modal Back/Escape behavior, responsive touch targets and motion feedback without changing game, AI, persistence or native release contracts. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
 
 Native builds must bundle the frontend locally, remain usable without loading the hosted website, and must not register the PWA service worker. Native-only integrations such as store updates, signing, lifecycle behavior, native sharing or haptics should remain isolated behind small platform boundaries. Cross-platform conventions and validation gates are documented in `docs/CROSS_PLATFORM.md`.
 
@@ -87,11 +88,11 @@ Self-play is a tuning and integration signal, not a strength proof. Small sample
 
 ## Interaction principles
 
-A short tap places a mark. A drag moves the board. Pinch zooms on touch devices and the mouse wheel zooms on desktop. Camera movement must never alter board coordinates. The interface should preserve as much screen area as possible for the board.
+A short tap places a mark. A drag moves the board. Cancelled pointer gestures must never create a move. Pinch zooms on touch devices and normalized mouse-wheel input zooms on desktop. Camera movement must never alter board coordinates. The interface should preserve as much screen area as possible for the board.
 
 Keyboard users can focus the board, move a cell cursor with arrow keys, place a mark with Enter or Space, return to the latest move with Home and zoom with plus/minus. Keyboard interaction must retain an obvious focus indicator and localized assistive text. Motion that is purely decorative must respect the user's reduced-motion preference.
 
-Important controls must remain reachable on compact screens; labels may collapse to icons instead of disappearing. The player must always be able to identify whose turn it is, the latest move and the winning sequence. No modal confirmation should interrupt ordinary moves.
+Important controls must remain reachable on compact screens; labels may collapse to icons instead of disappearing, but touch targets must remain comfortably sized. The player must always be able to identify whose turn it is, the latest move and the winning sequence. Escape and platform/browser Back should close an open application dialog before navigating away. No modal confirmation should interrupt ordinary moves.
 
 A completed game may be replayed step by step or shared as a URL. Opening a shared or local-history replay must not overwrite an unrelated locally saved game.
 
@@ -150,11 +151,12 @@ Game rules, AI evaluation, local history and sharing formats must remain indepen
 11. RuStore release preparation, Android manifest hardening, privacy/terms and publication package. Completed in v0.5.2.
 12. Localized About UI with version/developer/legal links. Completed in v0.5.3.
 13. Android API 26/36 baseline, pinned NDK r29, AAB-first release packaging, ARM-only production ABIs and 16 KB compatibility gates. Completed in v0.5.4.
-14. RuStore console signing enrollment, real-device validation and publication.
-15. macOS direct-distribution packaging with Developer ID signing/notarization when available.
-16. Google Play and iOS/App Store distribution when the required developer access is available.
-17. Optional room-link online multiplayer across supported platforms.
-18. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
+14. Mobile/touch UX hardening, safer gesture cancellation, responsive 44 px controls, motion feedback and Back/Escape-aware dialogs. Completed in v0.6.0.
+15. RuStore console signing enrollment, real-device validation and publication.
+16. macOS direct-distribution packaging with Developer ID signing/notarization when available.
+17. Google Play and iOS/App Store distribution when the required developer access is available.
+18. Optional room-link online multiplayer across supported platforms.
+19. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
 
 ## Repository conventions
 
