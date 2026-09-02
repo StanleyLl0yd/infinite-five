@@ -29,7 +29,17 @@ const requireOptimization = process.argv.includes('--require-opt') || process.en
 const probe = spawnSync('wasm-opt', ['--version'], { stdio: 'ignore' });
 if (probe.status === 0) {
   const optimized = `${destination}.optimized`;
-  run('wasm-opt', ['-Oz', '--strip-debug', '--strip-producers', source, '-o', optimized]);
+  run('wasm-opt', [
+    '-Oz',
+    '--strip-debug',
+    '--strip-producers',
+    '--enable-bulk-memory',
+    '--enable-sign-ext',
+    '--enable-nontrapping-float-to-int',
+    source,
+    '-o',
+    optimized
+  ]);
   renameSync(optimized, destination);
 } else {
   if (requireOptimization) throw new Error('wasm-opt is required for production web builds');
