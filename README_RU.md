@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.1-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.2-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.6.1** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.1 — первый нативный релиз, собранный из authoritative Rust game core после финального trust-boundary и release hardening. Rust проверяет историю партии, границы количества ходов/координат и внешние параметры AI-поиска; Rust-зависимости проверяются через RustSec; production web/native pipeline сохраняет WASM optimization, проверки утечек source/debug-артефактов, Android R8/resource shrinking и совместимость с 16 KB memory pages. Android остаётся на `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 и ARM-only ABI (`arm64-v8a` + `armeabi-v7a`). macOS остаётся universal DMG с ad-hoc подписью до появления Developer ID signing/notarization.
+Текущий опубликованный релиз: **v0.6.2** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.2 обновляет иконку приложения для Web/PWA и нативных платформ из единого утверждённого raster source of truth; v0.6.1 остаётся первым нативным релизом, собранным из authoritative Rust game core после финального trust-boundary и release hardening. Rust проверяет историю партии, границы количества ходов/координат и внешние параметры AI-поиска; Rust-зависимости проверяются через RustSec; production web/native pipeline сохраняет WASM optimization, проверки утечек source/debug-артефактов, Android R8/resource shrinking и совместимость с 16 KB memory pages. Android остаётся на `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 и ARM-only ABI (`arm64-v8a` + `armeabi-v7a`). macOS остаётся universal DMG с ad-hoc подписью до появления Developer ID signing/notarization.
 
 ## 🎯 Правила
 

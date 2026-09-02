@@ -2,7 +2,7 @@
 
 Infinite Five keeps one TypeScript/Vite application layer and one authoritative Rust game core, with Tauri 2 as the native application shell. The browser/PWA build remains a first-class target: the Rust core is compiled to WebAssembly for web use, while native packages call the same Rust implementation directly through Tauri. Rendering, replay, history and localization remain shared TypeScript code rather than platform-specific implementations.
 
-Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. RuStore submission is the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
+Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. Release v0.6.1 hardens Rust trust boundaries, coordinate/state validation and release verification. Release v0.6.2 refreshes the application icon from one canonical raster source and deterministically generates Web/PWA and native launcher assets without changing product behavior or native identity. RuStore submission is the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
 
 ## Target model
 
@@ -57,7 +57,7 @@ npm run tauri:build
 npm run tauri:android:build
 ```
 
-Android platform files are generated under `src-tauri/gen/android`. Tauri icons are generated from the canonical `public/icon.svg` artwork.
+Android platform files are generated under `src-tauri/gen/android`. Tauri icons are generated from the canonical `branding/infinite-five-icon-master.png` raster artwork.
 
 ## Android and RuStore
 
@@ -86,7 +86,7 @@ If the initial keystore contains only one suitable key, the app and upload alias
 
 macOS is a supported native target in the architecture even if it is not the first public native release target. Direct distribution can use a Tauri-generated application bundle/DMG without relying on the Mac App Store. The canonical bundle identity is `com.sl.infinitefive`.
 
-Release v0.6.0 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
+Release v0.6.2 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
 When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
 
@@ -139,4 +139,4 @@ A successful CI package build is a compatibility signal, not a substitute for te
 
 The authoritative rules and AI stay in the shared Rust core. External core state is bounded and validated before gameplay/search work, including impossible post-win histories, coordinate/move limits, and bounded AI request parameters. Rust lockfiles are monitored by Dependabot and audited against RustSec advisories.
 
-Production web builds require optimized/stripped WebAssembly and verify the frontend bundle for source/debug leakage. Android release verification checks package identity, SDK/ABI policy, signing in the signed release workflow, 16 KB native alignment, stripped native libraries, source/WASM leakage and internal game-core symbol leakage. macOS release verification keeps equivalent universal-architecture and leakage checks; Developer ID notarization remains a future signing step rather than a v0.6.1 blocker.
+Production web builds require optimized/stripped WebAssembly and verify the frontend bundle for source/debug leakage. Android release verification checks package identity, SDK/ABI policy, signing in the signed release workflow, 16 KB native alignment, stripped native libraries, source/WASM leakage and internal game-core symbol leakage. macOS release verification keeps equivalent universal-architecture and leakage checks; Developer ID notarization remains a future signing step rather than a v0.6.2 blocker.

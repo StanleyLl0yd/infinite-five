@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.1-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.2-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.6.1** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.1 is the first native release built from the authoritative Rust game core after final trust-boundary and release hardening. Rust validates saved histories, move/coordinate bounds and external AI search limits; Rust dependencies are audited with RustSec; production web/native pipelines keep WASM optimization, source/debug leakage checks, Android R8/resource shrinking and 16 KB page compatibility. Android remains `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 and ARM-only (`arm64-v8a` + `armeabi-v7a`). macOS remains an ad-hoc signed universal DMG until Developer ID signing/notarization is available.
+Current published release: **v0.6.2** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.2 refreshes the application icon across Web/PWA and native targets from the approved raster source of truth; v0.6.1 was the first native release built from the authoritative Rust game core after final trust-boundary and release hardening. Rust validates saved histories, move/coordinate bounds and external AI search limits; Rust dependencies are audited with RustSec; production web/native pipelines keep WASM optimization, source/debug leakage checks, Android R8/resource shrinking and 16 KB page compatibility. Android remains `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 and ARM-only (`arm64-v8a` + `armeabi-v7a`). macOS remains an ad-hoc signed universal DMG until Developer ID signing/notarization is available.
 
 ## 🎯 Rules
 

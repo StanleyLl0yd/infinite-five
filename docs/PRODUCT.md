@@ -4,7 +4,7 @@
 
 Infinite Five is a minimal five-in-a-row game played on an unbounded square grid. The product should feel immediate, clean and equally natural on desktop and mobile. TypeScript/Vite provides the shared application and rendering layer, while one authoritative Rust core implements board rules, win detection and AI for both browser and native shells so platform expansion does not create separate game engines.
 
-Current published release: **v0.6.0**.
+Current published release: **v0.6.2**.
 
 ## Core rules
 
@@ -60,7 +60,7 @@ Online multiplayer remains outside the current release and may be added later wi
 
 The browser/PWA remains a first-class target. Native applications use Tauri 2 around the same compiled frontend and game core rather than separate Kotlin, Swift or desktop implementations.
 
-Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 added the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Release v0.5.3 added a compact localized About surface with version/developer/legal links. Release v0.5.4 hardens Android to `minSdk 26`, target/compile API 36, pinned NDK r29, an AAB-first signed release flow, ARM-only production ABIs (`arm64-v8a` + `armeabi-v7a`), and mandatory 16 KB ELF/APK/AAB compatibility verification. Release v0.6.0 hardens mobile/touch interaction, modal Back/Escape behavior, responsive touch targets and motion feedback without changing game, AI, persistence or native release contracts. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
+Release v0.5.0 established the cross-platform Tauri foundation and native build verification. Release v0.5.1 added secret-backed Android signing, verified APK/AAB packaging, an ad-hoc signed universal macOS DMG, checksums, and native asset attachment. Release v0.5.2 added the repository-wide audit/refactor, immutable release-source verification, RuStore-oriented Android permission minimization, synchronized version metadata, privacy/application terms, and the first RuStore publication package. Release v0.5.3 added a compact localized About surface with version/developer/legal links. Release v0.5.4 hardens Android to `minSdk 26`, target/compile API 36, pinned NDK r29, an AAB-first signed release flow, ARM-only production ABIs (`arm64-v8a` + `armeabi-v7a`), and mandatory 16 KB ELF/APK/AAB compatibility verification. Release v0.6.0 hardens mobile/touch interaction, modal Back/Escape behavior, responsive touch targets and motion feedback without changing game, AI, persistence or native release contracts. Release v0.6.1 hardens Rust trust boundaries, external-state validation and release verification. Release v0.6.2 refreshes the application icon across Web/PWA and native targets from one canonical raster source while preserving game, AI, persistence and native identity. Android through RuStore is the active public native distribution target. Google Play and App Store remain planned until developer access is available. macOS direct distribution remains supported, with Developer ID signing/notarization pending Apple signing access. Windows and Linux may be evaluated later without changing the shared game implementation.
 
 Native builds must bundle the frontend locally, remain usable without loading the hosted website, and must not register the PWA service worker. Native-only integrations such as store updates, signing, lifecycle behavior, native sharing or haptics should remain isolated behind small platform boundaries. Cross-platform conventions and validation gates are documented in `docs/CROSS_PLATFORM.md`.
 
@@ -153,11 +153,13 @@ The Rust rules/AI core, local history and sharing formats must remain independen
 12. Localized About UI with version/developer/legal links. Completed in v0.5.3.
 13. Android API 26/36 baseline, pinned NDK r29, AAB-first release packaging, ARM-only production ABIs and 16 KB compatibility gates. Completed in v0.5.4.
 14. Mobile/touch UX hardening, safer gesture cancellation, responsive 44 px controls, motion feedback and Back/Escape-aware dialogs. Completed in v0.6.0.
-15. RuStore console signing enrollment, real-device validation and publication.
-16. macOS direct-distribution packaging with Developer ID signing/notarization when available.
-17. Google Play and iOS/App Store distribution when the required developer access is available.
-18. Optional room-link online multiplayer across supported platforms.
-19. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
+15. Rust trust-boundary hardening, bounded external-state validation and RustSec release verification. Completed in v0.6.1.
+16. Canonical raster app-icon refresh and deterministic Web/PWA/native icon generation. Completed in v0.6.2.
+17. RuStore console signing enrollment, real-device validation and publication.
+18. macOS direct-distribution packaging with Developer ID signing/notarization when available.
+19. Google Play and iOS/App Store distribution when the required developer access is available.
+20. Optional room-link online multiplayer across supported platforms.
+21. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.
 
 ## Repository conventions
 
