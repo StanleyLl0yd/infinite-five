@@ -25,15 +25,14 @@ const source = resolve(
 const destination = resolve('public/game-core/game_core.wasm');
 mkdirSync(dirname(destination), { recursive: true });
 
+const requireOptimization = process.argv.includes('--require-opt') || process.env.WASM_OPT_REQUIRED === '1';
 const probe = spawnSync('wasm-opt', ['--version'], { stdio: 'ignore' });
 if (probe.status === 0) {
   const optimized = `${destination}.optimized`;
   run('wasm-opt', ['-Oz', '--strip-debug', '--strip-producers', source, '-o', optimized]);
   renameSync(optimized, destination);
 } else {
-  if (process.env.WASM_OPT_REQUIRED === '1') {
-    throw new Error('wasm-opt is required for this production build');
-  }
+  if (requireOptimization) throw new Error('wasm-opt is required for production web builds');
   cpSync(source, destination);
 }
 
