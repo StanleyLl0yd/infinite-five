@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { requestAiMove } from './game/ai-client';
 import type { AiDifficulty } from './game/ai';
 import { Board } from './game/board';
+import { applyCoreMove, readCoreState, undoCoreMoves } from './game/core-client';
 import {
   addHistoryEntry,
   createHistoryId,
@@ -19,8 +20,7 @@ import {
   encodeSharedGame,
   readSharedGameFromHash
 } from './game/share';
-import { getWinningLine } from './game/win';
-import type { Mark, Move, Position, WinningLine } from './game/types';
+import type { CoreGameState, Mark, Move, Position, WinningLine } from './game/types';
 import { interpolate, resolveLocale, translations, type LanguagePreference, type Locale } from './i18n';
 import { CanvasBoard } from './ui/canvas-board';
 
@@ -83,9 +83,7 @@ const defaultSettings: AppSettings = {
 
 const getElement = <T extends Element>(selector: string): T => {
   const element = document.querySelector<T>(selector);
-  if (!element) {
-    throw new Error(`Missing application element: ${selector}`);
-  }
+  if (!element) throw new Error(`Missing application element: ${selector}`);
   return element;
 };
 
@@ -199,6 +197,8 @@ let replay: ReplayState | null = null;
 let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null;
 let toastTimer: number | null = null;
+let coreReady = false;
+let movePending = false;
 let view: CanvasBoard;
 
 const appDialogs = [aboutDialog, resultDialog, resumeDialog, historyDialog, settingsDialog] as const;
@@ -460,8 +460,7 @@ const saveHistory = (): void => {
   localStorage.setItem(historyStorageKey, serializeHistory(gameHistory));
 };
 
-const validateMoves = (moves: unknown[]): moves is Move[] =>
-  moves.every((move, index) => isMove(move) && move.mark === (index % 2 === 0 ? 'X' : 'O'));
+const validateMoves = (moves: unknown[]): moves is Move[] => moves.every(isMove);
 
 const loadSavedGame = (): boolean => {
   const saved = localStorage.getItem(gameStorageKey) ?? localStorage.getItem(legacyGameStorageKey);
@@ -476,7 +475,7 @@ const loadSavedGame = (): boolean => {
     settings.mode = parsed.mode;
     if (isDifficulty(parsed.difficulty)) settings.difficulty = parsed.difficulty;
     humanMark = isMark(parsed.humanMark) ? parsed.humanMark : 'X';
-    board.restore(parsed.moves);
+    board.replace(parsed.moves);
     resultRecorded = parsed.resultRecorded === true;
     saveSettings();
     return true;
@@ -510,12 +509,15 @@ const saveGame = (): void => {
   localStorage.removeItem(legacyGameStorageKey);
 };
 
-const resolveGameState = (): void => {
-  const moves = board.getMoves();
-  const lastMove = moves[moves.length - 1];
-  winningLine = lastMove ? getWinningLine(board, lastMove) : null;
-  winner = winningLine && lastMove ? lastMove.mark : null;
-  currentMark = moves.length % 2 === 0 ? 'X' : 'O';
+const applyCoreState = (state: CoreGameState): void => {
+  board.replace(state.moves);
+  winningLine = state.winningLine;
+  winner = state.winner;
+  currentMark = state.nextMark;
+};
+
+const resolveGameState = async (): Promise<void> => {
+  applyCoreState(await readCoreState(board.getMoves()));
 };
 
 const getResultText = (): string => {
@@ -625,7 +627,7 @@ const renderHistory = (): void => {
       replayButton.addEventListener('click', () => {
         const moves = decodeSharedGame(entry.replay ?? '');
         if (!moves) return;
-        closeDialog(historyDialog, () => enterReplay(moves, true, 0));
+        closeDialog(historyDialog, () => void enterReplay(moves, true, 0));
       });
       row.append(replayButton);
     } else {
@@ -660,17 +662,18 @@ const updateControls = (): void => {
   const replaying = replay !== null;
   modeSelect.value = settings.mode;
   difficultySelect.value = settings.difficulty;
-  difficultySelect.disabled = aiThinking || replaying;
-  modeSelect.disabled = aiThinking || replaying;
-  undoButton.disabled = settings.mode !== 'ai' || !hasHumanMove() || aiThinking || replaying;
-  centerButton.disabled = board.getMoves().length === 0;
+  difficultySelect.disabled = !coreReady || aiThinking || movePending || replaying;
+  modeSelect.disabled = !coreReady || aiThinking || movePending || replaying;
+  undoButton.disabled = !coreReady || settings.mode !== 'ai' || !hasHumanMove() || aiThinking || movePending || replaying;
+  centerButton.disabled = !coreReady || board.getMoves().length === 0;
+  newGameButton.disabled = !coreReady || movePending;
   gameOptions.dataset.mode = settings.mode;
   humanSideField.hidden = settings.mode !== 'ai';
   replayBar.hidden = !replaying;
   if (replay) {
     replayStep.textContent = interpolate(text.replayStep, { current: replay.index, total: replay.moves.length });
-    replayPreviousButton.disabled = replay.index <= 0;
-    replayNextButton.disabled = replay.index >= replay.moves.length;
+    replayPreviousButton.disabled = movePending || replay.index <= 0;
+    replayNextButton.disabled = movePending || replay.index >= replay.moves.length;
   }
 };
 
@@ -746,17 +749,22 @@ const presentResult = (): void => {
   }, 520);
 };
 
-const applyMove = (position: Position, mark: Mark): boolean => {
-  if (!board.place(position.x, position.y, mark)) return false;
+const applyMove = async (position: Position, mark: Mark): Promise<boolean> => {
+  if (!coreReady || movePending) return false;
+  movePending = true;
+  refreshUi();
+  try {
+    applyCoreState(await applyCoreMove(board.getMoves(), position, mark));
+  } catch (error) {
+    console.error(error);
+    return false;
+  } finally {
+    movePending = false;
+  }
 
-  const move: Move = { ...position, mark };
-  winningLine = getWinningLine(board, move);
-  if (winningLine) {
-    winner = mark;
+  if (winner) {
     recordResult();
     recordHistory();
-  } else {
-    currentMark = mark === 'X' ? 'O' : 'X';
   }
 
   saveGame();
@@ -778,11 +786,13 @@ const cancelAiTurn = (): void => {
 
 const scheduleAiTurn = (): void => {
   if (
+    !coreReady ||
     settings.mode !== 'ai' ||
     winner ||
     replay ||
     currentMark !== computerMark() ||
     aiThinking ||
+    movePending ||
     resumeDialog.open
   ) {
     return;
@@ -793,15 +803,24 @@ const scheduleAiTurn = (): void => {
   refreshUi();
   aiTimer = window.setTimeout(() => {
     aiTimer = null;
-    void requestAiMove(board.getMoves(), computerMark(), settings.difficulty).then((position) => {
-      if (requestVersion !== aiRequestVersion || replay || winner || currentMark !== computerMark()) return;
-      aiThinking = false;
-      applyMove(position, computerMark());
-    });
+    void requestAiMove(board.getMoves(), computerMark(), settings.difficulty)
+      .then(async (position) => {
+        if (requestVersion !== aiRequestVersion || replay || winner || currentMark !== computerMark()) return;
+        aiThinking = false;
+        if (!await applyMove(position, computerMark())) refreshUi();
+      })
+      .catch((error) => {
+        console.error(error);
+        if (requestVersion === aiRequestVersion) {
+          aiThinking = false;
+          refreshUi();
+        }
+      });
   }, settings.difficulty === 'expert' ? 90 : 160);
 };
 
-const resetGame = (): void => {
+const resetGame = async (): Promise<void> => {
+  if (!coreReady || movePending) return;
   cancelAiTurn();
   cancelResultPresentation();
   if (resumeDialog.open) closeDialog(resumeDialog);
@@ -809,7 +828,6 @@ const resetGame = (): void => {
   document.documentElement.dataset.replay = 'false';
   board.clear();
   humanMark = chooseHumanMark();
-  currentMark = 'X';
   winner = null;
   winningLine = null;
   resultRecorded = false;
@@ -817,26 +835,36 @@ const resetGame = (): void => {
   localStorage.removeItem(legacyGameStorageKey);
   view.setWinningLine(null);
   view.centerOn();
+  coreReady = false;
+  refreshUi();
+  try {
+    applyCoreState(await readCoreState([]));
+  } finally {
+    coreReady = true;
+  }
   refreshUi();
   if (settings.mode === 'ai' && currentMark === computerMark()) scheduleAiTurn();
 };
 
-const handleCellClick = (position: Position): void => {
-  if (winner || replay || aiThinking) return;
+const handleCellClick = async (position: Position): Promise<void> => {
+  if (!coreReady || winner || replay || aiThinking || movePending) return;
   if (board.get(position.x, position.y)) {
     vibrate([7, 28, 7]);
     return;
   }
   if (settings.mode === 'ai' && currentMark !== humanMark) return;
-  if (!applyMove(position, currentMark)) return;
+  if (!await applyMove(position, currentMark)) return;
   if (!winner) vibrate(9);
   if (settings.mode === 'ai' && !winner) scheduleAiTurn();
 };
 
-const restoreReplayPosition = (): void => {
-  if (!replay) return;
-  board.restore(replay.moves.slice(0, replay.index));
-  resolveGameState();
+const restoreReplayPosition = async (): Promise<void> => {
+  const activeReplay = replay;
+  if (!activeReplay) return;
+  const targetIndex = activeReplay.index;
+  const state = await readCoreState(activeReplay.moves.slice(0, targetIndex));
+  if (replay !== activeReplay || replay.index !== targetIndex) return;
+  applyCoreState(state);
   view.setWinningLine(winningLine);
   if (!winningLine) view.clearWinEmphasis();
   const lastMove = board.getMoves()[board.getMoves().length - 1];
@@ -844,15 +872,15 @@ const restoreReplayPosition = (): void => {
   refreshUi();
 };
 
-const enterReplay = (moves: readonly Move[], shared: boolean, startAt = 0): void => {
+const enterReplay = async (moves: readonly Move[], shared: boolean, startAt = 0): Promise<void> => {
   cancelAiTurn();
   cancelResultPresentation();
   replay = { moves: [...moves], index: Math.max(0, Math.min(startAt, moves.length)), shared };
   document.documentElement.dataset.replay = 'true';
-  restoreReplayPosition();
+  await restoreReplayPosition();
 };
 
-const exitReplay = (): void => {
+const exitReplay = async (): Promise<void> => {
   if (!replay) return;
   const replayState = replay;
   if (replayState.shared) {
@@ -863,10 +891,11 @@ const exitReplay = (): void => {
     return;
   }
 
-  board.restore(replayState.moves);
+  const state = await readCoreState(replayState.moves);
+  if (replay !== replayState) return;
   replay = null;
   document.documentElement.dataset.replay = 'false';
-  resolveGameState();
+  applyCoreState(state);
   view.setWinningLine(winningLine);
   const lastMove = board.getMoves()[board.getMoves().length - 1];
   view.centerOn(lastMove);
@@ -918,7 +947,7 @@ const saveDialogSettings = (): void => {
   view.render();
   closeDialog(settingsDialog, () => {
     refreshUi();
-    if (settings.mode === 'ai' && previousSide !== settings.humanSide) resetGame();
+    if (settings.mode === 'ai' && previousSide !== settings.humanSide) void resetGame();
   });
 };
 
@@ -931,24 +960,49 @@ humanMark = chooseHumanMark();
 
 const sharedMoves = readSharedGameFromHash(window.location.hash);
 const loadedSavedGame = !sharedMoves && loadSavedGame();
-resolveGameState();
-
-view = new CanvasBoard(canvas, board, handleCellClick);
-view.setWinningLine(winningLine);
+view = new CanvasBoard(canvas, board, (position) => void handleCellClick(position));
 refreshUi();
 
-if (sharedMoves) {
-  enterReplay(sharedMoves, true, sharedMoves.length);
-} else if (loadedSavedGame && board.getMoves().length > 0 && !winner) {
-  resumeDialogPrompt.textContent = interpolate(text.resumePrompt, { moves: board.getMoves().length });
-  showDialog(resumeDialog);
-} else if (winner) {
-  recordResult();
-  saveGame();
-  window.setTimeout(showResultDialog, 180);
-} else if (settings.mode === 'ai' && currentMark === computerMark()) {
-  scheduleAiTurn();
-}
+const initializeGame = async (): Promise<void> => {
+  if (sharedMoves) {
+    await enterReplay(sharedMoves, true, sharedMoves.length);
+    coreReady = true;
+    refreshUi();
+    return;
+  }
+
+  try {
+    await resolveGameState();
+  } catch (error) {
+    if (!loadedSavedGame) throw error;
+    localStorage.removeItem(gameStorageKey);
+    localStorage.removeItem(legacyGameStorageKey);
+    board.clear();
+    resultRecorded = false;
+    await resolveGameState();
+  }
+
+  coreReady = true;
+  view.setWinningLine(winningLine);
+  refreshUi();
+
+  if (loadedSavedGame && board.getMoves().length > 0 && !winner) {
+    resumeDialogPrompt.textContent = interpolate(text.resumePrompt, { moves: board.getMoves().length });
+    showDialog(resumeDialog);
+  } else if (winner) {
+    recordResult();
+    saveGame();
+    window.setTimeout(showResultDialog, 180);
+  } else if (settings.mode === 'ai' && currentMark === computerMark()) {
+    scheduleAiTurn();
+  }
+};
+
+void initializeGame().catch((error) => {
+  console.error(error);
+  coreReady = false;
+  refreshUi();
+});
 
 centerButton.addEventListener('click', () => {
   const moves = board.getMoves();
@@ -979,10 +1033,10 @@ settingsButton.addEventListener('click', () => {
 settingsSaveButton.addEventListener('click', saveDialogSettings);
 settingsCloseButton.addEventListener('click', () => closeDialog(settingsDialog));
 
-newGameButton.addEventListener('click', resetGame);
-resultNewGameButton.addEventListener('click', () => closeDialog(resultDialog, resetGame));
+newGameButton.addEventListener('click', () => void resetGame());
+resultNewGameButton.addEventListener('click', () => closeDialog(resultDialog, () => void resetGame()));
 resultReplayButton.addEventListener('click', () =>
-  closeDialog(resultDialog, () => enterReplay(board.getMoves(), false, 0))
+  closeDialog(resultDialog, () => void enterReplay(board.getMoves(), false, 0))
 );
 resultShareButton.addEventListener('click', () => void shareGame());
 resultCloseButton.addEventListener('click', () => closeDialog(resultDialog));
@@ -994,16 +1048,14 @@ resumeContinueButton.addEventListener('click', () => {
     if (settings.mode === 'ai' && currentMark === computerMark()) scheduleAiTurn();
   });
 });
-resumeNewGameButton.addEventListener('click', () => closeDialog(resumeDialog, resetGame));
+resumeNewGameButton.addEventListener('click', () => closeDialog(resumeDialog, () => void resetGame()));
 
 undoButton.addEventListener('click', () => {
-  if (settings.mode !== 'ai' || !hasHumanMove() || replay) return;
+  if (!coreReady || settings.mode !== 'ai' || !hasHumanMove() || replay || movePending) return;
   cancelAiTurn();
   cancelResultPresentation();
-  revertRecordedResult();
-  revertRecordedHistory();
 
-  const moves = board.getMoves();
+  const moves = [...board.getMoves()];
   let humanMoveIndex = -1;
   for (let index = moves.length - 1; index >= 0; index -= 1) {
     if (moves[index].mark === humanMark) {
@@ -1012,22 +1064,32 @@ undoButton.addEventListener('click', () => {
     }
   }
   if (humanMoveIndex < 0) return;
-  while (board.getMoves().length > humanMoveIndex) board.undo();
 
-  resolveGameState();
-  resultRecorded = false;
-  saveGame();
-  view.setWinningLine(winningLine);
-  const lastMove = board.getMoves()[board.getMoves().length - 1];
-  view.centerOn(lastMove);
+  movePending = true;
   refreshUi();
+  void undoCoreMoves(moves, moves.length - humanMoveIndex)
+    .then((state) => {
+      revertRecordedResult();
+      revertRecordedHistory();
+      applyCoreState(state);
+      resultRecorded = false;
+      saveGame();
+      view.setWinningLine(winningLine);
+      const lastMove = board.getMoves()[board.getMoves().length - 1];
+      view.centerOn(lastMove);
+    })
+    .catch((error) => console.error(error))
+    .finally(() => {
+      movePending = false;
+      refreshUi();
+    });
 });
 
 modeSelect.addEventListener('change', () => {
   if (!isMode(modeSelect.value)) return;
   settings.mode = modeSelect.value;
   saveSettings();
-  resetGame();
+  void resetGame();
 });
 
 difficultySelect.addEventListener('change', () => {
@@ -1041,15 +1103,15 @@ difficultySelect.addEventListener('change', () => {
 replayPreviousButton.addEventListener('click', () => {
   if (!replay || replay.index <= 0) return;
   replay.index -= 1;
-  restoreReplayPosition();
+  void restoreReplayPosition();
 });
 replayNextButton.addEventListener('click', () => {
   if (!replay || replay.index >= replay.moves.length) return;
   replay.index += 1;
-  restoreReplayPosition();
+  void restoreReplayPosition();
 });
 replayShareButton.addEventListener('click', () => void shareGame());
-replayExitButton.addEventListener('click', exitReplay);
+replayExitButton.addEventListener('click', () => void exitReplay());
 
 for (const dialog of appDialogs) {
   dialog.addEventListener('cancel', (event) => {
