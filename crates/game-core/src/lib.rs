@@ -255,6 +255,77 @@ pub unsafe extern "C" fn core_call(pointer: u32, length: u32) -> u64 {
 mod tests {
     use super::*;
 
+    fn request_ai(
+        moves: &[Move],
+        mark: Mark,
+        difficulty: AiDifficulty,
+        seed: u32,
+        time_budget_ms: u64,
+        max_depth: Option<u32>,
+    ) -> (Position, AiSearchDiagnostics) {
+        let response = dispatch(CoreRequest::AiMove {
+            moves: moves.to_vec(),
+            mark,
+            difficulty,
+            seed: Some(seed),
+            time_budget_ms: Some(time_budget_ms),
+            max_depth,
+        })
+        .unwrap();
+        (response.position.unwrap(), response.diagnostics.unwrap())
+    }
+
+    fn apply_move(moves: &[Move], position: Position, mark: Mark) -> GameState {
+        dispatch(CoreRequest::ApplyMove {
+            moves: moves.to_vec(),
+            position,
+            mark,
+        })
+        .unwrap()
+        .state
+        .unwrap()
+    }
+
+    fn play_match(
+        x_difficulty: AiDifficulty,
+        o_difficulty: AiDifficulty,
+        seed: u32,
+        max_moves: usize,
+    ) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let mut mark = Mark::X;
+
+        for ply in 0..max_moves {
+            let difficulty = if mark == Mark::X {
+                x_difficulty
+            } else {
+                o_difficulty
+            };
+            let budget = match difficulty {
+                AiDifficulty::Expert => 55,
+                AiDifficulty::Hard => 35,
+                AiDifficulty::Easy | AiDifficulty::Medium => 20,
+            };
+            let max_depth = (difficulty == AiDifficulty::Expert).then_some(2);
+            let (position, _) = request_ai(
+                &moves,
+                mark,
+                difficulty,
+                seed.wrapping_add((ply as u32).wrapping_mul(97)),
+                budget,
+                max_depth,
+            );
+            assert!(!moves.iter().any(|next| next.position() == position));
+            let state = apply_move(&moves, position, mark);
+            moves = state.moves;
+            if state.winner.is_some() {
+                break;
+            }
+            mark = state.next_mark;
+        }
+        moves
+    }
+
     #[test]
     fn dispatch_applies_moves_and_reports_state() {
         let response = dispatch_json(
@@ -291,5 +362,58 @@ mod tests {
         let parsed = serde_json::from_str::<serde_json::Value>(&response).unwrap();
         assert_eq!(parsed["result"]["state"]["moves"].as_array().unwrap().len(), 1);
         assert_eq!(parsed["result"]["state"]["nextMark"], "O");
+    }
+
+    #[test]
+    fn medium_returns_an_empty_nearby_cell() {
+        let moves = [
+            Move {
+                x: 0,
+                y: 0,
+                mark: Mark::X,
+            },
+            Move {
+                x: 1,
+                y: 0,
+                mark: Mark::O,
+            },
+        ];
+        let (position, _) = request_ai(&moves, Mark::X, AiDifficulty::Medium, 3, 140, None);
+        assert!(!moves.iter().any(|next| next.position() == position));
+        assert!(position.x.abs().max(position.y.abs()) <= 3);
+    }
+
+    #[test]
+    fn expert_and_hard_self_play_remains_legal() {
+        let first = play_match(AiDifficulty::Expert, AiDifficulty::Hard, 101, 24);
+        let second = play_match(AiDifficulty::Expert, AiDifficulty::Hard, 101, 24);
+        assert!(!first.is_empty());
+        assert!(!second.is_empty());
+        assert!(first.len() <= 24);
+        assert!(second.len() <= 24);
+
+        let mirrored = play_match(AiDifficulty::Hard, AiDifficulty::Expert, 211, 24);
+        assert!(!mirrored.is_empty());
+        assert!(mirrored.len() <= 24);
+    }
+
+    #[test]
+    fn representative_expert_position_reports_search_diagnostics() {
+        let moves = [
+            Move { x: 0, y: 0, mark: Mark::X },
+            Move { x: 1, y: 0, mark: Mark::O },
+            Move { x: 0, y: 1, mark: Mark::X },
+            Move { x: 1, y: 1, mark: Mark::O },
+            Move { x: -1, y: 0, mark: Mark::X },
+            Move { x: 2, y: 1, mark: Mark::O },
+            Move { x: -1, y: 1, mark: Mark::X },
+            Move { x: 2, y: 0, mark: Mark::O },
+        ];
+        let (position, diagnostics) =
+            request_ai(&moves, Mark::X, AiDifficulty::Expert, 313, 500, Some(3));
+        assert!(!moves.iter().any(|next| next.position() == position));
+        assert!(diagnostics.root_candidates > 0);
+        assert!(diagnostics.completed_depth <= 3);
+        assert!(diagnostics.elapsed_ms >= 0.0);
     }
 }
