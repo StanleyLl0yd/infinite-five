@@ -1,0 +1,96 @@
+name: Apply original raster icon
+
+on:
+  push:
+    branches: [release/v0.6.2-new-icon]
+    paths:
+      - .github/workflows/apply-raster-icon.yml
+      - .icon-upload/**
+      - scripts/prepare-icon-assets.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: release/v0.6.2-new-icon
+          persist-credentials: true
+
+      - name: Reconstruct raster master
+        run: |
+          cat .icon-upload/part*.b64 > "$RUNNER_TEMP/infinite-five-icon.b64"
+          base64 --decode "$RUNNER_TEMP/infinite-five-icon.b64" > "$RUNNER_TEMP/infinite-five-icon.jpg"
+          file "$RUNNER_TEMP/infinite-five-icon.jpg" | grep -F 'JPEG image data'
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends imagemagick
+          mkdir -p branding
+          convert "$RUNNER_TEMP/infinite-five-icon.jpg" branding/infinite-five-icon-master.png
+          file branding/infinite-five-icon-master.png | grep -F 'PNG image data'
+
+      - name: Switch web icon references to raster assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          index = Path('index.html')
+          text = index.read_text(encoding='utf-8')
+          old = '<link rel="icon" href="./icon.svg" type="image/svg+xml" />'
+          new = '<link rel="icon" href="./favicon-32.png" type="image/png" />'
+          if old not in text:
+              raise SystemExit('Expected SVG favicon reference not found')
+          index.write_text(text.replace(old, new), encoding='utf-8')
+
+          vite = Path('vite.config.ts')
+          text = vite.read_text(encoding='utf-8')
+          old = "        'icon.svg',\n"
+          new = "        'favicon-32.png',\n"
+          if old not in text:
+              raise SystemExit('Expected SVG PWA asset reference not found')
+          vite.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+      - name: Remove vector icon sources
+        run: |
+          rm -f \
+            branding/icon-manifest.json \
+            branding/infinite-five-icon.svg \
+            branding/infinite-five-icon-foreground.svg \
+            branding/infinite-five-icon-maskable.svg \
+            public/icon.svg
+
+      - name: Generate platform raster assets
+        run: |
+          npm ci
+          npm run prepare:icons
+
+      - name: Verify raster-only icon pipeline
+        run: |
+          test -f branding/infinite-five-icon-master.png
+          test -f public/icon-512.png
+          test -f public/icon-192.png
+          test -f public/icon-maskable-512.png
+          test -f public/apple-touch-icon.png
+          test -f public/favicon-32.png
+          test -f src-tauri/icons/icon.icns
+          test -f src-tauri/icons/icon.ico
+          test -f src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          ! grep -R -n -E 'infinite-five-icon.*\.svg|icon-manifest\.json|public/icon\.svg' package.json scripts vite.config.ts index.html branding || false
+          if grep -R -n -E 'infinite-five-icon.*\.svg|icon-manifest\.json|public/icon\.svg' package.json scripts vite.config.ts index.html branding; then
+            exit 1
+          fi
+
+      - name: Commit raster icon assets
+        run: |
+          rm -rf .icon-upload
+          rm -f .github/workflows/apply-raster-icon.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Use original raster app icon for v0.6.2"
+          git push origin HEAD:release/v0.6.2-new-icon
