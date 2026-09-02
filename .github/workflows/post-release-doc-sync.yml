@@ -1,0 +1,185 @@
+name: Post-release documentation sync
+
+on:
+  push:
+    branches:
+      - docs/v0.6.2-post-release
+    paths:
+      - .github/workflows/post-release-doc-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: docs/v0.6.2-post-release
+          persist-credentials: true
+
+      - name: Update released-state documentation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:120]!r}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          def replace_all(path: str, old: str, new: str, expected_min: int = 1) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count < expected_min:
+                  raise SystemExit(f'{path}: expected at least {expected_min} matches, found {count}: {old!r}')
+              file.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'README.md',
+              'source-0.6.1-16A34A',
+              'source-0.6.2-16A34A',
+          )
+          replace_once(
+              'README.md',
+              'Current published release: **v0.6.1** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.1 is the first native release built from the authoritative Rust game core after final trust-boundary and release hardening.',
+              'Current published release: **v0.6.2** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.2 refreshes the application icon across Web/PWA and native targets from the approved raster source of truth; v0.6.1 was the first native release built from the authoritative Rust game core after final trust-boundary and release hardening.',
+          )
+
+          replace_once(
+              'README_RU.md',
+              'source-0.6.1-16A34A',
+              'source-0.6.2-16A34A',
+          )
+          replace_once(
+              'README_RU.md',
+              'Текущий опубликованный релиз: **v0.6.1** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.1 — первый нативный релиз, собранный из authoritative Rust game core после финального trust-boundary и release hardening.',
+              'Текущий опубликованный релиз: **v0.6.2** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.2 обновляет иконку приложения для Web/PWA и нативных платформ из единого утверждённого raster source of truth; v0.6.1 остаётся первым нативным релизом, собранным из authoritative Rust game core после финального trust-boundary и release hardening.',
+          )
+
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract.',
+              'Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. Release v0.6.1 hardens Rust trust boundaries, coordinate/state validation and release verification. Release v0.6.2 refreshes the application icon from one canonical raster source and deterministically generates Web/PWA and native launcher assets without changing product behavior or native identity.',
+          )
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Tauri icons are generated from the canonical `public/icon.svg` artwork.',
+              'Tauri icons are generated from the canonical `branding/infinite-five-icon-master.png` raster artwork.',
+          )
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Release v0.6.0 continues to produce a universal Apple Silicon + Intel DMG with an ad-hoc signature.',
+              'Release v0.6.2 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature.',
+          )
+          replace_once(
+              'docs/CROSS_PLATFORM.md',
+              'Developer ID notarization remains a future signing step rather than a v0.6.1 blocker.',
+              'Developer ID notarization remains a future signing step rather than a v0.6.2 blocker.',
+          )
+
+          replace_once(
+              'docs/RUSTORE.md',
+              'Infinite Five v0.6.0 is the current RuStore release candidate. The signed GitHub Release is published from source commit `ba84de6d0ba093ebd544223c290c3ed23514be8a`;',
+              'Infinite Five v0.6.2 is the current RuStore release candidate. The signed GitHub Release is published from source commit `6ebf1061c1184a54245a20548e32ec4c2a372fb8`;',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              'The published v0.6.0 release contains:',
+              'The published v0.6.2 release contains:',
+          )
+          replace_all('docs/RUSTORE.md', 'Infinite-Five-v0.6.0-', 'Infinite-Five-v0.6.2-', expected_min=4)
+          replace_once(
+              'docs/RUSTORE.md',
+              '1d692d8ae1b604f70cc58c99b55243ce9099d652db3274b9014ef361a91a95c2  Infinite-Five-v0.6.2-Android.aab\ne25a602372a5b8d60209f47a7cf411a64b4f51efa18f6e49d328cabd9bf30361  Infinite-Five-v0.6.2-Android.apk\n56f64788a905f8a3c646d9ea7479f11211c1d032825d6d3b170a84e231a1ff6d  Infinite-Five-v0.6.2-macOS-universal.dmg',
+              '5480468d8026314ae9f6606de8468761dcac7ae01f2344847b60276373f527fb  Infinite-Five-v0.6.2-Android.aab\n807aec469de7238c0cc54c84a76cd007a393a8911c9d4ffa6e32442f642b4b72  Infinite-Five-v0.6.2-Android.apk\ncae418a6360db65aba3aa334007473b6c58ba65cde11d36e2d3f7d3db34b9486  Infinite-Five-v0.6.2-macOS-universal.dmg',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              'The v0.6.0 Android release baseline is:',
+              'The v0.6.2 Android release baseline is:',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              '### Version 0.6.0 release notes',
+              '### Version 0.6.2 release notes',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              'Улучшено управление на телефонах и планшетах: безопаснее разделены тап и перетаскивание, отменённый touch-жест больше не может поставить знак, улучшены pinch/wheel zoom и плавное возвращение к последнему ходу. Добавлены анимация последнего хода, разные виброотклики, корректное закрытие диалогов через Back/Escape, 44 px touch-targets и улучшенный compact landscape. Android release baseline остаётся Android 8.0+, target/compile API 36, NDK r29, подписанный AAB-first ARM package и обязательная 16 KB compatibility verification.',
+              'Обновлена иконка приложения для Web/PWA, Android и macOS: все launcher/store assets теперь детерминированно генерируются из единого утверждённого raster master без отдельного SVG-master. Дополнительно усилена Rust-валидация внешних координат и trust boundaries. Игровая механика, AI, сохранения и формат обмена не изменялись. Android release baseline остаётся Android 8.0+, target/compile API 36, NDK r29, подписанный AAB-first ARM package и обязательная 16 KB compatibility verification.',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              'It preserves the canonical Infinite Five artwork while flattening the background to every edge. The app/PWA launcher artwork remains unchanged.',
+              'It is generated from the same canonical raster artwork used for app/PWA and native launcher assets while keeping the background filled to every edge for the store listing.',
+          )
+          replace_once('docs/RUSTORE.md', '- 8,046 bytes;', '- 236,466 bytes;')
+          replace_once(
+              'docs/RUSTORE.md',
+              'Mobile screenshots are mandatory. Use real screenshots captured from the v0.6.0 release candidate rather than mockups or generated promotional screens.',
+              'Mobile screenshots are mandatory. Use real screenshots captured from the v0.6.2 release candidate rather than mockups or generated promotional screens.',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              '- GitHub Release `v0.6.0` tag resolves to source commit `ba84de6d0ba093ebd544223c290c3ed23514be8a`.',
+              '- GitHub Release `v0.6.2` tag resolves to source commit `6ebf1061c1184a54245a20548e32ec4c2a372fb8`.',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              '- `versionName` is `0.6.0` and Android `versionCode` is higher than v0.5.4.',
+              '- `versionName` is `0.6.2` and Android `versionCode` is higher than the previous signed release build.',
+          )
+          replace_once(
+              'docs/RUSTORE.md',
+              'RuStore In-App Updates is optional for the first publication and is intentionally not a blocker for v0.6.0.',
+              'RuStore In-App Updates is optional for the first publication and is intentionally not a blocker for v0.6.2.',
+          )
+
+          replace_once(
+              'docs/PRODUCT.md',
+              'Current published release: **v0.6.0**.',
+              'Current published release: **v0.6.2**.',
+          )
+          replace_once(
+              'docs/PRODUCT.md',
+              'Release v0.6.0 hardens mobile/touch interaction, modal Back/Escape behavior, responsive touch targets and motion feedback without changing game, AI, persistence or native release contracts.',
+              'Release v0.6.0 hardens mobile/touch interaction, modal Back/Escape behavior, responsive touch targets and motion feedback without changing game, AI, persistence or native release contracts. Release v0.6.1 hardens Rust trust boundaries, external-state validation and release verification. Release v0.6.2 refreshes the application icon across Web/PWA and native targets from one canonical raster source while preserving game, AI, persistence and native identity.',
+          )
+          replace_once(
+              'docs/PRODUCT.md',
+              '15. RuStore console signing enrollment, real-device validation and publication.\n16. macOS direct-distribution packaging with Developer ID signing/notarization when available.\n17. Google Play and iOS/App Store distribution when the required developer access is available.\n18. Optional room-link online multiplayer across supported platforms.\n19. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.',
+              '15. Rust trust-boundary hardening, bounded external-state validation and RustSec release verification. Completed in v0.6.1.\n16. Canonical raster app-icon refresh and deterministic Web/PWA/native icon generation. Completed in v0.6.2.\n17. RuStore console signing enrollment, real-device validation and publication.\n18. macOS direct-distribution packaging with Developer ID signing/notarization when available.\n19. Google Play and iOS/App Store distribution when the required developer access is available.\n20. Optional room-link online multiplayer across supported platforms.\n21. Ongoing repository maintenance, dependency review and measured performance/AI follow-up.',
+          )
+          PY
+
+      - name: Verify documentation sync
+        run: |
+          test "$(node -p "require('./package.json').version")" = "0.6.2"
+          grep -F 'source-0.6.2-16A34A' README.md README_RU.md
+          grep -F 'Current published release: **v0.6.2**' README.md docs/PRODUCT.md
+          grep -F 'Текущий опубликованный релиз: **v0.6.2**' README_RU.md
+          grep -F 'branding/infinite-five-icon-master.png' docs/CROSS_PLATFORM.md
+          ! grep -F 'canonical `public/icon.svg` artwork' docs/CROSS_PLATFORM.md
+          grep -F 'Infinite Five v0.6.2 is the current RuStore release candidate.' docs/RUSTORE.md
+          grep -F '6ebf1061c1184a54245a20548e32ec4c2a372fb8' docs/RUSTORE.md
+          grep -F '5480468d8026314ae9f6606de8468761dcac7ae01f2344847b60276373f527fb' docs/RUSTORE.md
+          grep -F -- '- 236,466 bytes;' docs/RUSTORE.md
+          git diff --check
+
+      - name: Commit documentation sync
+        run: |
+          rm .github/workflows/post-release-doc-sync.yml
+          git config user.name 'Stanley Lloyd'
+          git config user.email '131160519+StanleyLl0yd@users.noreply.github.com'
+          git add README.md README_RU.md docs/CROSS_PLATFORM.md docs/RUSTORE.md docs/PRODUCT.md .github/workflows/post-release-doc-sync.yml
+          git diff --cached --check
+          git commit -m 'Sync documentation with v0.6.2 release'
+          git push origin HEAD:docs/v0.6.2-post-release
