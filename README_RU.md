@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.5.4-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.0-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.5.4** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.3 добавлено локализованное окно About с версией приложения, разработчиком и ссылками на GitHub/политику/условия. В v0.5.4 Android приведён к актуальной базе Google Play: `minSdk 26`, `targetSdk 36`, `compileSdk 36`, закреплён NDK r29, AAB сделан основным подписанным release-форматом, production ABI ограничены `arm64-v8a` + `armeabi-v7a`, а совместимость с 16 KB memory pages проверяется автоматически. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
+Текущий опубликованный релиз: **v0.6.0** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. В v0.5.4 Android приведён к актуальной базе Google Play: `minSdk 26`, `targetSdk 36`, `compileSdk 36`, закреплён NDK r29, AAB сделан основным подписанным release-форматом, production ABI ограничены `arm64-v8a` + `armeabi-v7a`, а совместимость с 16 KB memory pages проверяется автоматически. В v0.6.0 улучшены мобильный UX и управление полем: отменённые touch-жесты больше не создают ход, нормализован wheel zoom, добавлены плавное центрирование, анимация последнего хода, разные виброотклики, корректная работа Back/Escape с диалогами, 44 px touch targets, компактный landscape-layout и дополнительные UX-регрессии. Активный этап распространения — публикация Android в RuStore. Google Play и App Store остаются в планах до появления необходимого developer-доступа; Developer ID signing/notarization для macOS также ждёт Apple-доступа.
 
 ## 🎯 Правила
 
@@ -52,7 +52,7 @@
 - определение победы при 5+ знаках, подсветка последнего хода, анимация победной линии и акцент на выигрышной комбинации;
 - управление полем с клавиатуры: стрелки, `Enter`/`Space`, `Home`, `+` и `-`;
 - видимый фокус, локализованные подсказки для assistive technology и поддержка reduced motion;
-- после партии доступны новая игра, повтор и отправка ссылки;
+- после партии доступны новая игра, повтор и отправка ссылки; Back/Escape корректно закрывают модальные окна;
 - отмена хода против AI и накопительная локальная статистика побед, поражений и процента побед;
 - локальная история **20 последних завершённых партий** с повтором, когда партия помещается в компактный формат;
 - сохранение незаконченной партии с выбором «Продолжить / Новая игра»;
@@ -60,9 +60,9 @@
 - компактные ссылки, восстанавливающие последовательность ходов без backend;
 - системная, светлая и тёмная темы плюс быстрый переключатель;
 - автоматический русский/английский язык и ручной выбор языка;
-- опциональные звук результата и вибрация;
-- защита от случайных ходов при сенсорном перемещении поля;
-- компактные мобильные кнопки вместо скрытия важных действий;
+- опциональный звук результата и разные виброотклики для хода, занятой клетки и результата;
+- защищённый touch-ввод: отменённые жесты не создают ход, порог drag адаптируется к масштабу, pinch/drag остаются стабильными;
+- постоянные мобильные кнопки с touch-target не меньше 44 px, отдельным компактным рядом и режимом для низкого landscape-экрана;
 - устанавливаемая PWA с офлайн-готовностью и уведомлением о новой версии;
 - автоматическая защищённая публикация на GitHub Pages;
 - общая оболочка Tauri 2 для проверки Android/macOS-пакетов без разветвления игрового ядра;
@@ -269,9 +269,11 @@ Push и pull request автоматически проходят GitHub Actions:
 
 В **v0.5.4** завершены: Android 8.0+ (`minSdk 26`), target/compile API 36, NDK r29, AAB-first release pipeline, ARM-only production ABI и обязательные проверки совместимости ELF/APK/AAB с 16 KB memory pages.
 
+В **v0.6.0** завершены: mobile/touch UX hardening, безопасная отмена жестов, нормализованный wheel zoom, плавное центрирование, анимация последнего хода, расширенный haptic feedback, Back/Escape-aware диалоги, 44 px мобильные touch-targets, compact landscape и отдельные UX-регрессии.
+
 Следующие приоритеты:
 
-- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.5.4 на модерацию;
+- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.6.0 на модерацию;
 - подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;
 - добавить Google Play и iOS/App Store после появления необходимого developer-доступа;
 - продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;
