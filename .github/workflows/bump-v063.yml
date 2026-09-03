@@ -1,0 +1,60 @@
+name: Bump v0.6.3 metadata
+
+on:
+  push:
+    branches: [fix/v0.6.3-original-icon]
+    paths:
+      - .github/workflows/bump-v063.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Update release metadata
+        run: |
+          set -euxo pipefail
+          npm version 0.6.3 --no-git-tag-version
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          conf = Path('src-tauri/tauri.conf.json')
+          text = conf.read_text(encoding='utf-8')
+          text2 = text.replace('"version": "0.6.2"', '"version": "0.6.3"', 1)
+          assert text2 != text
+          conf.write_text(text2, encoding='utf-8')
+
+          cargo = Path('src-tauri/Cargo.toml')
+          text = cargo.read_text(encoding='utf-8')
+          text2, count = re.subn(r'(^\[package\]\n(?:.*\n)*?^version = ")0\.6\.2("$)', r'\g<1>0.6.3\2', text, count=1, flags=re.MULTILINE)
+          assert count == 1
+          cargo.write_text(text2, encoding='utf-8')
+
+          lock = Path('src-tauri/Cargo.lock')
+          text = lock.read_text(encoding='utf-8')
+          text2, count = re.subn(r'(\[\[package\]\]\nname = "infinite-five"\nversion = ")0\.6\.2("\n)', r'\g<1>0.6.3\2', text, count=1)
+          assert count == 1
+          lock.write_text(text2, encoding='utf-8')
+          PY
+          git diff --check
+          grep -F '"version": "0.6.3"' package.json
+          grep -F '"version": "0.6.3"' src-tauri/tauri.conf.json
+          grep -A2 '^name = "infinite-five"$' src-tauri/Cargo.lock | grep -F 'version = "0.6.3"'
+      - name: Commit version metadata
+        run: |
+          set -euxo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "Bump Infinite Five to v0.6.3"
+          git push
