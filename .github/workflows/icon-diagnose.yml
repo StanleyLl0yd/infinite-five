@@ -1,0 +1,38 @@
+name: Diagnose app icon
+
+on:
+  push:
+    branches: [fix/v0.6.3-original-icon]
+    paths:
+      - .github/workflows/icon-diagnose.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Inspect icon assets
+        run: |
+          set -euxo pipefail
+          file branding/infinite-five-icon-master.png
+          sha256sum branding/infinite-five-icon-master.png
+          file src-tauri/icons/icon.png || true
+          sha256sum src-tauri/icons/icon.png || true
+          file src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png || true
+          sha256sum src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png || true
+          mkdir -p icon-diagnose
+          cp branding/infinite-five-icon-master.png icon-diagnose/master.png
+          cp src-tauri/icons/icon.png icon-diagnose/tauri-icon.png
+          cp src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png icon-diagnose/android-launcher.png
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: icon-diagnose
+          path: icon-diagnose
+          if-no-files-found: error
+          retention-days: 1
