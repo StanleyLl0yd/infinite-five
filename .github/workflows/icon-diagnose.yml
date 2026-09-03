@@ -29,16 +29,18 @@ jobs:
       - name: Verify Android launcher was replaced
         run: |
           set -euxo pipefail
+          ANDROID_RES=src-tauri/gen/android/app/src/main/res
           file branding/infinite-five-icon-master.png
-          file src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png
+          file "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher.png"
           sha256sum branding/infinite-five-icon-master.png
-          sha256sum src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png
-          test "$(sha256sum src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png | cut -d' ' -f1)" != "1758d7a79da8ccc015f33bd770fe57dabc4c0bb9bc27f4191efe2514295ea87a"
+          sha256sum "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher.png"
+          test "$(sha256sum "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher.png" | cut -d' ' -f1)" != "1758d7a79da8ccc015f33bd770fe57dabc4c0bb9bc27f4191efe2514295ea87a"
+          test ! -d src-tauri/icons/android
           mkdir -p icon-verify
           cp branding/infinite-five-icon-master.png icon-verify/master.png
-          cp src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png icon-verify/android-launcher.png
-          cp src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png icon-verify/android-foreground.png
-          cp src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png icon-verify/android-round.png
+          cp "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher.png" icon-verify/android-launcher.png
+          cp "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher_foreground.png" icon-verify/android-foreground.png
+          cp "$ANDROID_RES/mipmap-xxxhdpi/ic_launcher_round.png" icon-verify/android-round.png
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
@@ -52,7 +54,7 @@ jobs:
           set -euxo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src-tauri/icons src-tauri/gen/android/app/src/main/res public docs/assets/rustore
+          git add -A src-tauri/icons src-tauri/gen/android/app/src/main/res public docs/assets/rustore
           if git diff --cached --quiet; then
             echo "No regenerated icon changes found" >&2
             exit 1
