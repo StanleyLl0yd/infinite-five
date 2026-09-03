@@ -1,10 +1,11 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const tauriCli = join('node_modules', '@tauri-apps', 'cli', 'tauri.js');
 const masterIcon = join('branding', 'infinite-five-icon-master.png');
 const nativeIcons = join('src-tauri', 'icons');
+const androidIcons = join(nativeIcons, 'android');
 const androidRes = join('src-tauri', 'gen', 'android', 'app', 'src', 'main', 'res');
 
 function runIcon(input, output) {
@@ -28,16 +29,17 @@ if (!existsSync(masterIcon)) {
   throw new Error(`Missing raster master icon: ${masterIcon}`);
 }
 
+rmSync(androidIcons, { recursive: true, force: true });
 runIcon(masterIcon, nativeIcons);
 
 for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
   copy(
-    join(nativeIcons, 'android', `mipmap-${density}`),
+    join(androidIcons, `mipmap-${density}`),
     join(androidRes, `mipmap-${density}`)
   );
 }
-copy(join(nativeIcons, 'android', 'mipmap-anydpi-v26'), join(androidRes, 'mipmap-anydpi-v26'));
-copy(join(nativeIcons, 'android', 'values'), join(androidRes, 'values'));
+copy(join(androidIcons, 'mipmap-anydpi-v26'), join(androidRes, 'mipmap-anydpi-v26'));
+copy(join(androidIcons, 'values'), join(androidRes, 'values'));
 copy(
   join(androidRes, 'mipmap-anydpi-v26', 'ic_launcher.xml'),
   join(androidRes, 'mipmap-anydpi-v26', 'ic_launcher_round.xml')
@@ -45,10 +47,7 @@ copy(
 
 copy(join(nativeIcons, 'icon.png'), join('public', 'icon-512.png'));
 copy(join(nativeIcons, 'icon.png'), join('public', 'icon-maskable-512.png'));
-copy(
-  join(nativeIcons, 'android', 'mipmap-xxxhdpi', 'ic_launcher.png'),
-  join('public', 'icon-192.png')
-);
+copy(join(androidIcons, 'mipmap-xxxhdpi', 'ic_launcher.png'), join('public', 'icon-192.png'));
 copy(join(nativeIcons, 'ios', 'AppIcon-60x60@3x.png'), join('public', 'apple-touch-icon.png'));
 copy(join(nativeIcons, '32x32.png'), join('public', 'favicon-32.png'));
 copy(join(nativeIcons, 'icon.png'), join('docs', 'assets', 'rustore', 'infinite-five-icon-512.png'));
