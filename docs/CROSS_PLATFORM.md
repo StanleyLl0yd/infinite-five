@@ -80,7 +80,7 @@ The Android release secret contract is:
 
 If the initial keystore contains only one suitable key, the app and upload aliases can temporarily point to the same key, but a separate upload key is preferred for the RuStore AAB lifecycle. RuStore may additionally require the encrypted application-signing key export and upload certificate during first-time AAB signing setup; those store enrollment files are separate from GitHub release artifacts.
 
-`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in GitHub Secrets or the release environment, never in Git. The workflow verifies certificate fingerprints before signing and validates the resulting APK/AAB signatures before publishing.
+`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in GitHub Secrets or the release environment, never in Git. Native Release runs dependency audit and frontend/Rust tests before decoding the JKS; it restores and verifies signing material only immediately before the signed Android build and removes the temporary keystore/properties with an `always()` cleanup. The workflow verifies certificate fingerprints before signing and validates the resulting APK/AAB signatures before publishing.
 
 ## macOS
 
@@ -92,7 +92,7 @@ When the required Apple developer access becomes available, replace ad-hoc signi
 
 ## Native release artifacts
 
-`.github/workflows/native-release.yml` is the single controlled release path. For an automatic version-changing push to `main`, its preflight creates the matching GitHub Release as a draft for that exact source commit, records the source SHA, and makes Android and macOS jobs check out that immutable commit identity rather than re-resolving the draft tag. The same workflow builds and verifies the native packages, stages the expected files and `SHA256SUMS.txt` on the draft release, and publishes only after the complete verified artifact set is present. Repository Release Immutability must be enabled so publication locks the release tag and attached assets.
+`.github/workflows/native-release.yml` is the single controlled release path. It is intentionally push-only: a version-changing push to protected `main` runs preflight for that exact `GITHUB_SHA`, creates the matching GitHub Release as a draft when needed, and makes Android and macOS jobs check out the preflight-recorded source SHA rather than re-resolving the draft tag. The same workflow builds and verifies the native packages, stages the expected files and `SHA256SUMS.txt` on the draft release, and publishes only after the complete verified artifact set is present. Repository Release Immutability must be enabled so publication locks the release tag and attached assets.
 
 For each successful run the controlled pipeline builds and verifies:
 
@@ -103,7 +103,9 @@ Infinite-Five-v<version>-macOS-universal.dmg
 SHA256SUMS.txt
 ```
 
-Automatic release builds use the exact version-changing `main` commit. Manual native publication is allowed only for an existing draft release whose tag resolves to a commit already in `main` history and whose version matches `package.json`; an already published immutable release is final and must not accept rebuilt or replacement assets. Draft retries may replace only the expected artifact names, while any unexpected attachment blocks publication. Before publication, the workflow requires exactly the four expected assets, compares each GitHub-hosted asset SHA-256 digest with the locally verified file, and rechecks tag-to-source identity. After publication it rechecks the tag, requires `isImmutable=true`, preserves the exact four-asset set, and verifies the GitHub release attestation and each local artifact against it.
+Native Release does not expose `workflow_dispatch`, so an arbitrary branch/tag cannot manually enter the signing or publication path through the default-branch workflow. If a release run fails transiently, use GitHub Actions re-run on that original run; GitHub preserves the original `GITHUB_SHA` and `GITHUB_REF`, and the draft retry may replace only the expected artifact names through the controlled upload path. Any unexpected attachment blocks publication. Before publication, the workflow requires exactly the four expected assets, compares each GitHub-hosted asset SHA-256 digest with the locally verified file, and rechecks tag-to-source identity. After publication it rechecks the tag, requires `isImmutable=true`, preserves the exact four-asset set, and verifies the GitHub release attestation and each local artifact against it.
+
+An already published immutable release is final and causes a later same-version trigger to skip native rebuilding. A draft or orphan tag that resolves to another source commit fails closed rather than being reused.
 
 Existing releases published before repository Release Immutability was enabled are not retroactively made immutable. Do not describe or treat those historical releases as immutable merely because future releases use this flow.
 
