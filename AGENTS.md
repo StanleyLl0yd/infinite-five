@@ -4,18 +4,18 @@
 
 - Inspect the existing implementation before changing it.
 - Preserve the core product: five in a row on an infinite board without progression systems, resources, power-ups, world maps, or unrelated meta mechanics unless explicitly approved.
-- Keep the web implementation based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved.
-- Treat the TypeScript/Vite application as the shared game implementation for web and native targets; do not create separate platform-specific game engines.
+- Keep the web layer based on TypeScript, HTML5 Canvas, Vite, and PWA unless a change is explicitly approved. TypeScript/Vite owns web UI, orchestration, browser integration, and rendering rather than authoritative game rules or AI.
+- Treat shared Rust `crates/game-core` as the single authoritative implementation of game rules, win detection, and AI for web and native targets. Bridge to it from platform layers; do not maintain parallel TypeScript or platform-specific rule/AI engines.
 - Use Tauri 2 as the native application shell for Android, macOS, iOS, and any later desktop targets unless a platform constraint is demonstrated and an alternative is explicitly approved.
 - Keep the native Application ID / Bundle ID fixed as `com.sl.infinitefive` unless an identifier migration is explicitly approved. Android namespace, applicationId, Kotlin package declarations, generated package paths, tests, workflows, and documentation must stay aligned with it.
-- Keep native integrations minimal and isolated behind platform boundaries. Native Kotlin/Swift/Rust code must not duplicate game rules, AI, replay, history, or localization logic without a compelling platform requirement.
+- Keep native integrations minimal and isolated behind platform boundaries. Native platform glue such as Kotlin, Swift, and Tauri host Rust must not duplicate `crates/game-core` game rules, win detection, or AI; replay, history, and localization logic also remain shared unless a compelling platform requirement exists.
 - Native production builds must bundle the frontend locally and must not load GitHub Pages as their primary application UI.
 - Keep PWA service workers, install prompts, and web update handling browser-only; native package updates belong to the platform distribution channel.
-- Build release APK/AAB/DMG files only from an immutable release tag through the controlled native release workflow; do not publish native release files built from an arbitrary moving branch.
+- Build release APK/AAB/DMG files only from the exact source selected by the controlled native release workflow; attach verified files to the matching draft release and publish only after the complete artifact set is staged so the tag and assets become immutable. Do not publish native release files built from an arbitrary moving branch.
 - Keep Android signing material exclusively in GitHub Secrets or another approved release secret store. Restore keystores only on ephemeral runners, verify expected certificate fingerprints before signing, and never commit generated signing property files.
 - Keep the Android application-signing key and AAB upload key logically distinct even when both aliases live in one keystore. The APK must use the application-signing key and the AAB must use the upload key unless an explicitly reviewed store requirement says otherwise.
 - Treat ad-hoc macOS signing only as an interim direct-testing/distribution mode. Once Developer ID access exists, use Developer ID signing and notarization for normal public macOS distribution.
-- Keep game rules and AI logic independent from rendering and browser UI where practical.
+- Keep shared Rust game rules and AI independent from rendering and browser UI.
 - Keep AI candidate locality strictly as a search optimization; never turn it into a restriction on legal human moves.
 - Keep expensive Hard/Expert AI work off the UI thread where Web Workers are available, and keep Expert search bounded for mobile use.
 - Turn repeatable Hard or Expert mistakes into deterministic AI regression cases before or alongside the fix, and keep resolved cases in the suite unless the game rules change.

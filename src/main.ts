@@ -2,7 +2,7 @@ import './styles.css';
 import { version } from '../package.json';
 import { registerSW } from 'virtual:pwa-register';
 import { requestAiMove } from './game/ai-client';
-import type { AiDifficulty } from './game/ai';
+import type { AiDifficulty } from './game/types';
 import { Board } from './game/board';
 import { applyCoreMove, readCoreState, undoCoreMoves } from './game/core-client';
 import {
@@ -959,16 +959,26 @@ applyTheme();
 humanMark = chooseHumanMark();
 
 const sharedMoves = readSharedGameFromHash(window.location.hash);
-const loadedSavedGame = !sharedMoves && loadSavedGame();
+let loadedSavedGame = !sharedMoves && loadSavedGame();
 view = new CanvasBoard(canvas, board, (position) => void handleCellClick(position));
 refreshUi();
 
 const initializeGame = async (): Promise<void> => {
   if (sharedMoves) {
-    await enterReplay(sharedMoves, true, sharedMoves.length);
-    coreReady = true;
-    refreshUi();
-    return;
+    try {
+      await enterReplay(sharedMoves, true, sharedMoves.length);
+      coreReady = true;
+      refreshUi();
+      return;
+    } catch (error) {
+      console.error(error);
+      replay = null;
+      document.documentElement.dataset.replay = 'false';
+      const url = new URL(window.location.href);
+      url.hash = '';
+      history.replaceState(null, '', url);
+      loadedSavedGame = loadSavedGame();
+    }
   }
 
   try {
