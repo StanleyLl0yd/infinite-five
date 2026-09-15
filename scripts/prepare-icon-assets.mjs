@@ -7,6 +7,10 @@ const masterIcon = join('branding', 'infinite-five-icon-master.png');
 const nativeIcons = join('src-tauri', 'icons');
 const staleAndroidIcons = join(nativeIcons, 'android');
 const androidRes = join('src-tauri', 'gen', 'android', 'app', 'src', 'main', 'res');
+const staleAndroidVectorIcons = [
+  join(androidRes, 'drawable', 'ic_launcher_background.xml'),
+  join(androidRes, 'drawable-v24', 'ic_launcher_foreground.xml')
+];
 
 function runIcon(input, output) {
   const result = spawnSync(process.execPath, [tauriCli, 'icon', input, '--output', output], {
@@ -36,6 +40,7 @@ if (!existsSync(masterIcon)) {
 }
 
 rmSync(staleAndroidIcons, { recursive: true, force: true });
+for (const path of staleAndroidVectorIcons) rmSync(path, { force: true });
 runIcon(masterIcon, nativeIcons);
 
 for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
