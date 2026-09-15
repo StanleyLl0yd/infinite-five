@@ -71,6 +71,25 @@ describe('native application configuration', () => {
     expect(gradle).toContain('ndkVersion = "29.0.14206865"');
   });
 
+  it('pins the Android Gradle wrapper distribution checksum', () => {
+    const wrapper = read(`${androidRoot}/gradle/wrapper/gradle-wrapper.properties`);
+
+    expect(wrapper).toContain('distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip');
+    expect(wrapper).toContain(
+      'distributionSha256Sum=bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531',
+    );
+  });
+
+  it('keeps raster Android launcher resources authoritative', () => {
+    const adaptiveIcon = read(`${androidRoot}/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`);
+
+    expect(adaptiveIcon).toContain('@mipmap/ic_launcher_foreground');
+    expect(adaptiveIcon).toContain('@color/ic_launcher_background');
+    expect(existsSync(`${androidRoot}/app/src/main/res/drawable/ic_launcher_background.xml`)).toBe(false);
+    expect(existsSync(`${androidRoot}/app/src/main/res/drawable-v24/ic_launcher_foreground.xml`)).toBe(false);
+    expect(existsSync('src-tauri/icons/android')).toBe(false);
+  });
+
   it('keeps release permissions minimal', () => {
     const releaseManifest = read(`${androidRoot}/app/src/main/AndroidManifest.xml`);
     const debugManifest = read(`${androidRoot}/app/src/debug/AndroidManifest.xml`);
@@ -131,6 +150,13 @@ describe('native application configuration', () => {
     expect(verifier).toContain('verify_release_elf');
     expect(verifier).toContain("verify_native_assets \"$AAB\" 'base/assets/'");
     expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
+  });
+
+  it('rejects reusing a release version for a different source commit', () => {
+    const release = read('.github/workflows/release.yml');
+
+    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$VERSION" --jq .sha)"');
+    expect(release).toContain('test "$TAG_SHA" = "$GITHUB_SHA"');
   });
 
   it('skips automatic native rebuilds when the version tag belongs to an older source', () => {

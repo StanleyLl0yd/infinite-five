@@ -28,17 +28,6 @@ pub(crate) fn validate_move_count(count: usize) -> Result<(), &'static str> {
     }
 }
 
-fn validate_history(moves: &[Move]) -> Result<(), &'static str> {
-    validate_move_count(moves.len()).map_err(|_| "Invalid saved game")?;
-    if moves
-        .iter()
-        .any(|next| validate_position(next.position()).is_err())
-    {
-        return Err("Invalid saved game");
-    }
-    Ok(())
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct Board {
     cells: HashMap<(i64, i64), Mark>,
@@ -65,7 +54,7 @@ impl Board {
         Some(next)
     }
 
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         self.cells.clear();
         self.moves.clear();
     }
@@ -76,14 +65,17 @@ impl Board {
 
     pub fn restore(&mut self, moves: &[Move]) -> Result<(), &'static str> {
         self.clear();
-        validate_history(moves)?;
+        validate_move_count(moves.len()).map_err(|_| "Invalid saved game")?;
         for (index, next) in moves.iter().copied().enumerate() {
             let expected = if index.is_multiple_of(2) {
                 Mark::X
             } else {
                 Mark::O
             };
-            if next.mark != expected || !self.place(next.x, next.y, next.mark) {
+            if validate_position(next.position()).is_err()
+                || next.mark != expected
+                || !self.place(next.x, next.y, next.mark)
+            {
                 self.clear();
                 return Err("Invalid saved game");
             }
