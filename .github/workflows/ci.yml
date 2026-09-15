@@ -41,6 +41,9 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
       - name: Configure Rust WebAssembly target
         run: rustup target add wasm32-unknown-unknown
 

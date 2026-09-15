@@ -103,6 +103,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
       - name: Configure Android SDK, NDK and Rust targets
         run: |
           NDK_VERSION="29.0.14206865"
@@ -311,6 +314,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
 
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
