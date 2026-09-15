@@ -5,19 +5,11 @@ on:
     branches: [main]
     paths:
       - package.json
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag to rebuild and attach native artifacts to
-        required: true
-        type: string
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
 
 concurrency:
-  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+  group: native-release
   cancel-in-progress: false
 
 jobs:
@@ -25,41 +17,10 @@ jobs:
     name: Native release preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: write
     outputs:
       should_build: ${{ steps.release.outputs.should_build }}
-    steps:
-      - name: Checkout release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
-          persist-credentials: false
-
-      - name: Decide whether native artifacts are needed
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}"
-          TAG="${TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          SHOULD_BUILD=true
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
-            SOURCE_SHA="$(git rev-parse HEAD)"
-            if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
-              SHOULD_BUILD=false
-            fi
-          fi
-          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
-
-  android:
-    needs: preflight
-    if: needs.preflight.outputs.should_build == 'true'
-    name: Signed Android AAB and supplemental APK
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       source_sha: ${{ steps.release.outputs.source_sha }}
@@ -67,43 +28,146 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
+          node-version-file: .node-version
 
-      - name: Resolve release version
+      - name: Prepare draft release
         id: release
         env:
-          DISPATCH_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          TAG="${DISPATCH_TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          TAG="v$VERSION"
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
+          RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)"
+          RELEASE_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable 2>/dev/null || true)"
+          SHOULD_BUILD=true
+
+          if [[ "$RELEASE_DRAFT" == "false" ]]; then
+            test "$RELEASE_IMMUTABLE" = "true"
+            SHOULD_BUILD=false
+          elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
+            echo "Draft or orphan release tag $TAG belongs to another source commit: $TAG_SHA" >&2
+            exit 1
+          elif [[ "$RELEASE_DRAFT" == "true" ]]; then
+            test "$TAG_SHA" = "$SOURCE_SHA"
+          else
+            gh release create "$TAG" \
+              --target "$SOURCE_SHA" \
+              --title "Infinite Five $TAG" \
+              --generate-notes \
+              --draft \
+              --repo "$GITHUB_REPOSITORY"
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+            RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            test "$TAG_SHA" = "$SOURCE_SHA"
+            test "$RELEASE_DRAFT" = "true"
+          fi
+
+          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
+    name: Signed Android AAB and supplemental APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      ANDROID_BUILD_TOOLS_VERSION: '35.0.0'
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Android JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          check-latest: false
+
+      - name: Verify Android JDK
+        run: |
+          EXPECTED_JAVA_VERSION="$(tr -d '\r\n' < .java-version)"
+          EXPECTED_JAVA_MAJOR="${EXPECTED_JAVA_VERSION%%.*}"
+          test -n "$EXPECTED_JAVA_VERSION"
+          test -n "$JAVA_HOME"
+          test "$(command -v java)" = "$JAVA_HOME/bin/java"
+          java -XshowSettings:properties -version 2>&1 | tee "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.vendor = Eclipse Adoptium" "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.specification.version = $EXPECTED_JAVA_MAJOR" "$RUNNER_TEMP/java-version.txt"
+          grep -F "OpenJDK Runtime Environment Temurin-" "$RUNNER_TEMP/java-version.txt"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Android NDK and Rust targets
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
+      - name: Configure Android SDK, NDK and Rust targets
         run: |
           NDK_VERSION="29.0.14206865"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
           if [[ ! -d "$NDK_PATH" ]]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           fi
+          if [[ ! -d "$BUILD_TOOLS_PATH" ]]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;$ANDROID_BUILD_TOOLS_VERSION"
+          fi
           test -d "$NDK_PATH"
+          test -x "$BUILD_TOOLS_PATH/zipalign"
+          test -x "$BUILD_TOOLS_PATH/apksigner"
+          test -x "$BUILD_TOOLS_PATH/aapt"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Test Rust game core
+        run: npm run test:core
+
+      - name: Load canonical Android signing identities
+        run: |
+          node - <<'NODE' >> "$GITHUB_ENV"
+          const { readFileSync } = require('node:fs');
+          const identities = JSON.parse(readFileSync('.github/android-signing-identities.json', 'utf8'));
+          const values = {
+            ANDROID_APP_CERT_SHA256: identities.applicationSigningCertificateSha256,
+            ANDROID_UPLOAD_CERT_SHA256: identities.uploadCertificateSha256,
+          };
+          for (const [name, value] of Object.entries(values)) {
+            if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
+              throw new Error(`Invalid canonical Android signing fingerprint: ${name}`);
+            }
+            console.log(`${name}=${value}`);
+          }
+          NODE
 
       - name: Restore and verify Android keystore
         env:
@@ -111,10 +175,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_APP_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
           ANDROID_APP_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
-          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
           ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
           ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
-          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           test -n "$ANDROID_KEYSTORE_BASE64"
           test -n "$ANDROID_KEYSTORE_PASSWORD"
@@ -141,15 +203,6 @@ jobs:
 
           check_cert "$ANDROID_APP_KEY_ALIAS" "$ANDROID_APP_CERT_SHA256"
           check_cert "$ANDROID_UPLOAD_KEY_ALIAS" "$ANDROID_UPLOAD_CERT_SHA256"
-
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-
-      - name: Run frontend tests
-        run: npm test
-
-      - name: Test Rust game core
-        run: npm run test:core
 
       - name: Build signed AAB
         env:
@@ -207,14 +260,12 @@ jobs:
           cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
 
       - name: Verify Android artifacts
-        env:
-          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
-          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           APK="release/Infinite-Five-v${VERSION}-Android.apk"
           AAB="release/Infinite-Five-v${VERSION}-Android.aab"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
+          APKSIGNER="$BUILD_TOOLS_PATH/apksigner"
+          AAPT="$BUILD_TOOLS_PATH/aapt"
           test -x "$APKSIGNER"
           test -x "$AAPT"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
@@ -244,8 +295,8 @@ jobs:
         with:
           name: infinite-five-signed-android
           path: |
-            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.aab
-            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.apk
+            release/Infinite-Five-v${{ needs.preflight.outputs.version }}-Android.aab
+            release/Infinite-Five-v${{ needs.preflight.outputs.version }}-Android.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -255,32 +306,36 @@ jobs:
     name: Ad-hoc signed universal macOS DMG
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
+
+      - name: Verify Xcode toolchain
+        run: |
+          test "$(xcodebuild -version | sed -n '1p')" = "Xcode 16.4"
+          test "$(xcodebuild -version | sed -n '2p')" = "Build version 16F6"
+          test "$(xcrun --sdk macosx --show-sdk-version)" = "15.5"
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Resolve release version
-        env:
-          DISPATCH_TAG: ${{ inputs.tag }}
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          TAG="${DISPATCH_TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-
       - name: Install dependencies
         run: npm ci
+
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
 
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -323,10 +378,17 @@ jobs:
           retention-days: 30
 
   publish:
-    name: Attach native files to GitHub Release
-    needs: [android, macos]
+    name: Publish verified native release
+    needs: [preflight, android, macos]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+      VERSION: ${{ needs.preflight.outputs.version }}
+      SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
     steps:
       - name: Download workflow artifacts
         env:
@@ -340,32 +402,82 @@ jobs:
         working-directory: release
         run: sha256sum Infinite-Five-* > SHA256SUMS.txt
 
-      - name: Wait for matching GitHub Release and upload immutable assets
+      - name: Upload verified assets to draft release and publish
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.android.outputs.tag }}
-          SOURCE_SHA: ${{ needs.android.outputs.source_sha }}
         run: |
-          for attempt in $(seq 1 30); do
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
-              test "$TAG_SHA" = "$SOURCE_SHA"
-              for asset in \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
-                "SHA256SUMS.txt"; do
-                test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(. == \"$asset\")] | length")" = "0"
-              done
-              gh release upload "$TAG" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
-                release/SHA256SUMS.txt \
-                --repo "$GITHUB_REPOSITORY"
+          AAB="Infinite-Five-v${VERSION}-Android.aab"
+          APK="Infinite-Five-v${VERSION}-Android.apk"
+          DMG="Infinite-Five-v${VERSION}-macOS-universal.dmg"
+          CHECKSUMS="SHA256SUMS.txt"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "true"
+
+          UNEXPECTED_ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(. != \"$AAB\" and . != \"$APK\" and . != \"$DMG\" and . != \"$CHECKSUMS\")] | length")"
+          test "$UNEXPECTED_ASSETS" = "0"
+
+          gh release upload "$TAG" \
+            "release/$AAB" \
+            "release/$APK" \
+            "release/$DMG" \
+            "release/$CHECKSUMS" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+          RELEASE_ID="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+          verify_remote_asset() {
+            local path="$1"
+            local name="${path##*/}"
+            local expected="sha256:$(sha256sum "$path" | awk '{print $1}')"
+            local actual=""
+            for attempt in $(seq 1 12); do
+              actual="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --paginate --jq ".[] | select(.name == \"$name\") | .digest")"
+              if [[ "$actual" == "$expected" ]]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "GitHub asset digest mismatch for $name: expected $expected, got ${actual:-missing}" >&2
+            return 1
+          }
+
+          verify_remote_asset "release/$AAB"
+          verify_remote_asset "release/$APK"
+          verify_remote_asset "release/$DMG"
+          verify_remote_asset "release/$CHECKSUMS"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "true"
+          verify_remote_asset "release/$AAB"
+          verify_remote_asset "release/$APK"
+          verify_remote_asset "release/$DMG"
+          verify_remote_asset "release/$CHECKSUMS"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          IS_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "false"
+          test "$IS_IMMUTABLE" = "true"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+
+          for attempt in $(seq 1 12); do
+            if gh release verify "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$AAB" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$APK" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$DMG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$CHECKSUMS" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
               exit 0
             fi
-            sleep 10
+            sleep 5
           done
-          echo "Release $TAG was not created within the wait window." >&2
+          echo "Immutable release attestation for $TAG was not verifiable within the wait window." >&2
           exit 1

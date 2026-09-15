@@ -216,7 +216,9 @@ button.primary {
 }
 
 .game-info-copy {
+  position: relative;
   min-width: 0;
+  padding-right: 40px;
 }
 
 .game-info-copy h1 {
@@ -679,11 +681,6 @@ button.primary {
     max-height: 2.65em;
     overflow: hidden;
   }
-}
-
-.game-info-copy {
-  position: relative;
-  padding-right: 40px;
 }
 
 .about-button {

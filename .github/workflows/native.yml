@@ -19,30 +19,64 @@ jobs:
     name: Android release AAB and APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ANDROID_BUILD_TOOLS_VERSION: '35.0.0'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Set up pinned Android JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          check-latest: false
+
+      - name: Verify Android JDK
+        run: |
+          EXPECTED_JAVA_VERSION="$(tr -d '\r\n' < .java-version)"
+          EXPECTED_JAVA_MAJOR="${EXPECTED_JAVA_VERSION%%.*}"
+          test -n "$EXPECTED_JAVA_VERSION"
+          test -n "$JAVA_HOME"
+          test "$(command -v java)" = "$JAVA_HOME/bin/java"
+          java -XshowSettings:properties -version 2>&1 | tee "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.vendor = Eclipse Adoptium" "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.specification.version = $EXPECTED_JAVA_MAJOR" "$RUNNER_TEMP/java-version.txt"
+          grep -F "OpenJDK Runtime Environment Temurin-" "$RUNNER_TEMP/java-version.txt"
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Android NDK and Rust targets
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
+      - name: Configure Android SDK, NDK and Rust targets
         run: |
           NDK_VERSION="29.0.14206865"
           NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
           if [[ ! -d "$NDK_PATH" ]]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION"
           fi
+          if [[ ! -d "$BUILD_TOOLS_PATH" ]]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;$ANDROID_BUILD_TOOLS_VERSION"
+          fi
           test -d "$NDK_PATH"
+          test -x "$BUILD_TOOLS_PATH/zipalign"
+          test -x "$BUILD_TOOLS_PATH/apksigner"
+          test -x "$BUILD_TOOLS_PATH/aapt"
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi
 
@@ -83,21 +117,32 @@ jobs:
     name: macOS universal release DMG
     runs-on: macos-15
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Verify Xcode toolchain
+        run: |
+          test "$(xcodebuild -version | sed -n '1p')" = "Xcode 16.4"
+          test "$(xcodebuild -version | sed -n '2p')" = "Build version 16F6"
+          test "$(xcrun --sdk macosx --show-sdk-version)" = "15.5"
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
 
       - name: Configure macOS Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin

@@ -1,5 +1,4 @@
-import type { AiDifficulty } from './ai';
-import type { Mark, Move } from './types';
+import type { AiDifficulty, Mark, Move } from './types';
 
 export type HistoryGameMode = 'ai' | 'local';
 

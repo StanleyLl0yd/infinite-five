@@ -35,4 +35,13 @@ describe('v0.6.0 UX safeguards', () => {
     expect(main).toContain('history.pushState');
     expect(main).toContain('history.back()');
   });
+
+  it('recovers from invalid shared replay hashes without discarding a saved game', () => {
+    const main = read('src/main.ts');
+
+    expect(main).toContain('try {\n      await enterReplay(sharedMoves, true, sharedMoves.length)');
+    expect(main).toContain("document.documentElement.dataset.replay = 'false'");
+    expect(main).toContain("history.replaceState(null, '', url);\n      loadedSavedGame = loadSavedGame();");
+    expect(main).toContain('let loadedSavedGame = !sharedMoves && loadSavedGame()');
+  });
 });

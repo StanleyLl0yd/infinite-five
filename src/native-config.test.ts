@@ -71,6 +71,25 @@ describe('native application configuration', () => {
     expect(gradle).toContain('ndkVersion = "29.0.14206865"');
   });
 
+  it('pins the Android Gradle wrapper distribution checksum', () => {
+    const wrapper = read(`${androidRoot}/gradle/wrapper/gradle-wrapper.properties`);
+
+    expect(wrapper).toContain('distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip');
+    expect(wrapper).toContain(
+      'distributionSha256Sum=bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531',
+    );
+  });
+
+  it('keeps raster Android launcher resources authoritative', () => {
+    const adaptiveIcon = read(`${androidRoot}/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`);
+
+    expect(adaptiveIcon).toContain('@mipmap/ic_launcher_foreground');
+    expect(adaptiveIcon).toContain('@color/ic_launcher_background');
+    expect(existsSync(`${androidRoot}/app/src/main/res/drawable/ic_launcher_background.xml`)).toBe(false);
+    expect(existsSync(`${androidRoot}/app/src/main/res/drawable-v24/ic_launcher_foreground.xml`)).toBe(false);
+    expect(existsSync('src-tauri/icons/android')).toBe(false);
+  });
+
   it('keeps release permissions minimal', () => {
     const releaseManifest = read(`${androidRoot}/app/src/main/AndroidManifest.xml`);
     const debugManifest = read(`${androidRoot}/app/src/debug/AndroidManifest.xml`);
@@ -133,12 +152,127 @@ describe('native application configuration', () => {
     expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
   });
 
-  it('skips automatic native rebuilds when the version tag belongs to an older source', () => {
+  it('pins Android package verification to the AGP 8.11 Build Tools baseline', () => {
+    const native = read('.github/workflows/native.yml');
+    const release = read('.github/workflows/native-release.yml');
+    const verifier = read('scripts/verify-android-native.sh');
+
+    expect(native).toContain("ANDROID_BUILD_TOOLS_VERSION: '35.0.0'");
+    expect(release).toContain("ANDROID_BUILD_TOOLS_VERSION: '35.0.0'");
+    for (const workflow of [native, release]) {
+      expect(workflow).toContain('"build-tools;$ANDROID_BUILD_TOOLS_VERSION"');
+      expect(workflow).not.toMatch(/build-tools.*sort -V.*tail -n 1/);
+    }
+    expect(verifier).toContain('ANDROID_BUILD_TOOLS_VERSION="${ANDROID_BUILD_TOOLS_VERSION:-35.0.0}"');
+    expect(verifier).toContain('BUILD_TOOLS_DIR="${ANDROID_HOME:?ANDROID_HOME is required}/build-tools/$ANDROID_BUILD_TOOLS_VERSION"');
+    expect(verifier).toContain('ZIPALIGN="${ZIPALIGN:-$BUILD_TOOLS_DIR/zipalign}"');
+    expect(verifier).not.toContain('sort -V | tail -n 1');
+  });
+
+  it('pins macOS native builds to the verified Xcode and SDK toolchain', () => {
+    const native = read('.github/workflows/native.yml');
     const release = read('.github/workflows/native-release.yml');
 
-    expect(release).toContain('name: Native release preflight');
-    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"');
-    expect(release).toContain('if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]');
-    expect(release).toContain("if: needs.preflight.outputs.should_build == 'true'");
+    for (const workflow of [native, release]) {
+      expect(workflow).toContain('DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer');
+      expect(workflow).toContain('name: Verify Xcode toolchain');
+      expect(workflow).toContain('= "Xcode 16.4"');
+      expect(workflow).toContain('= "Build version 16F6"');
+      expect(workflow).toContain('xcrun --sdk macosx --show-sdk-version)" = "15.5"');
+    }
+  });
+
+  it('keeps one controlled draft-to-immutable release workflow', () => {
+    const release = read('.github/workflows/native-release.yml');
+
+    expect(existsSync('.github/workflows/release.yml')).toBe(false);
+    expect(release).toContain('group: native-release');
+    expect(release).toContain('name: Prepare draft release');
+    expect(release).toContain('gh release create "$TAG"');
+    expect(release).toContain('--target "$SOURCE_SHA"');
+    expect(release).toContain('--draft');
+    expect(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.source_sha \}\}/g)).toHaveLength(2);
+  });
+
+  it('limits release write permission to lifecycle jobs and release execution to protected main pushes', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const preflight = release.slice(release.indexOf('\n  preflight:'), release.indexOf('\n  android:'));
+    const android = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
+    const macos = release.slice(release.indexOf('\n  macos:'), release.indexOf('\n  publish:'));
+    const publish = release.slice(release.indexOf('\n  publish:'));
+
+    expect(release).toContain('permissions: {}');
+    expect(release).not.toContain('workflow_dispatch');
+    expect(release).not.toContain('inputs.tag');
+    expect(preflight).toContain('ref: ${{ github.sha }}');
+    expect(preflight).toContain('permissions:\n      contents: write');
+    expect(android).toContain('permissions:\n      contents: read');
+    expect(android).not.toContain('contents: write');
+    expect(macos).toContain('permissions:\n      contents: read');
+    expect(macos).not.toContain('contents: write');
+    expect(publish).toContain('permissions:\n      contents: write\n      actions: read');
+  });
+
+  it('restores signing material only after non-signing verification completes', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const android = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
+    const audit = android.indexOf('name: Audit dependencies');
+    const frontend = android.indexOf('name: Run frontend tests');
+    const core = android.indexOf('name: Test Rust game core');
+    const restore = android.indexOf('name: Restore and verify Android keystore');
+    const aab = android.indexOf('name: Build signed AAB');
+    const apk = android.indexOf('name: Build supplemental signed APK');
+    const verify = android.indexOf('name: Verify Android artifacts');
+    const cleanup = android.indexOf('name: Remove temporary signing material');
+
+    expect(audit).toBeGreaterThanOrEqual(0);
+    expect(frontend).toBeGreaterThan(audit);
+    expect(core).toBeGreaterThan(frontend);
+    expect(restore).toBeGreaterThan(core);
+    expect(aab).toBeGreaterThan(restore);
+    expect(apk).toBeGreaterThan(aab);
+    expect(verify).toBeGreaterThan(apk);
+    expect(cleanup).toBeGreaterThan(verify);
+    expect(android).toContain('if: always()');
+  });
+
+  it('skips immutable published versions and rejects conflicting draft tags', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const published = release.indexOf('if [[ "$RELEASE_DRAFT" == "false" ]]');
+    const conflict = release.indexOf('elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]', published);
+
+    expect(published).toBeGreaterThanOrEqual(0);
+    expect(conflict).toBeGreaterThan(published);
+    expect(release.slice(published, conflict)).toContain('test "$RELEASE_IMMUTABLE" = "true"');
+    expect(release.slice(published, conflict)).toContain('SHOULD_BUILD=false');
+    expect(release).toContain('Draft or orphan release tag $TAG belongs to another source commit');
+  });
+
+  it('stages and verifies the exact release asset set before immutable publication', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const upload = release.indexOf('gh release upload "$TAG"');
+    const digestVerification = release.indexOf('verify_remote_asset()', upload);
+    const provenanceRecheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', digestVerification);
+    const finalDigestVerification = release.lastIndexOf('verify_remote_asset "release/$CHECKSUMS"');
+    const publish = release.indexOf('gh release edit "$TAG" --draft=false');
+    const postPublishCheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', publish);
+
+    expect(release).toContain('test "$UNEXPECTED_ASSETS" = "0"');
+    expect(release).toContain('--clobber');
+    expect(upload).toBeGreaterThanOrEqual(0);
+    expect(digestVerification).toBeGreaterThan(upload);
+    expect(release).toContain('.digest")');
+    expect(release.match(/verify_remote_asset "release\/\$AAB"/g)).toHaveLength(2);
+    expect(release.match(/verify_remote_asset "release\/\$CHECKSUMS"/g)).toHaveLength(2);
+    expect(release).toContain("--jq '.assets | length')\" = \"4\"");
+    expect(provenanceRecheck).toBeGreaterThan(digestVerification);
+    expect(finalDigestVerification).toBeGreaterThan(provenanceRecheck);
+    expect(publish).toBeGreaterThan(finalDigestVerification);
+    expect(postPublishCheck).toBeGreaterThan(publish);
+    expect(release).toContain('--json isImmutable --jq .isImmutable');
+    expect(release).toContain('test "$IS_IMMUTABLE" = "true"');
+    expect(release).toContain('gh release verify "$TAG" --repo "$GITHUB_REPOSITORY"');
+    expect(release).toContain('gh release verify-asset "$TAG" "release/$AAB"');
+    expect(release).toContain('gh release verify-asset "$TAG" "release/$CHECKSUMS"');
   });
 });

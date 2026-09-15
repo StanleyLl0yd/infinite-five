@@ -4,6 +4,8 @@ set -euo pipefail
 AAB="${1:?AAB path is required}"
 APK="${2:?APK path is required}"
 EXPECTED_ABIS="arm64-v8a armeabi-v7a"
+ANDROID_BUILD_TOOLS_VERSION="${ANDROID_BUILD_TOOLS_VERSION:-35.0.0}"
+BUILD_TOOLS_DIR="${ANDROID_HOME:?ANDROID_HOME is required}/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
 
 for artifact in "$AAB" "$APK"; do
   test -f "$artifact"
@@ -94,7 +96,7 @@ verify_release_elf "$APK" 'lib/*/*.so' "$TMP_DIR/apk-release"
 verify_native_assets "$AAB" 'base/assets/'
 verify_native_assets "$APK" 'assets/'
 
-ZIPALIGN="${ZIPALIGN:-$(find "${ANDROID_HOME:?ANDROID_HOME is required}/build-tools" -type f -name zipalign | sort -V | tail -n 1)}"
+ZIPALIGN="${ZIPALIGN:-$BUILD_TOOLS_DIR/zipalign}"
 test -x "$ZIPALIGN"
 "$ZIPALIGN" -c -P 16 -v 4 "$APK" >/dev/null
 
