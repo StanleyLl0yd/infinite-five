@@ -164,7 +164,7 @@ describe('native application configuration', () => {
     expect(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.source_sha \}\}/g)).toHaveLength(2);
   });
 
-  it('limits release write permission to lifecycle jobs and keeps dispatch input out of shell expressions', () => {
+  it('limits release write permission to lifecycle jobs and release execution to protected main pushes', () => {
     const release = read('.github/workflows/native-release.yml');
     const preflight = release.slice(release.indexOf('\n  preflight:'), release.indexOf('\n  android:'));
     const android = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
@@ -172,15 +172,38 @@ describe('native application configuration', () => {
     const publish = release.slice(release.indexOf('\n  publish:'));
 
     expect(release).toContain('permissions: {}');
+    expect(release).not.toContain('workflow_dispatch');
+    expect(release).not.toContain('inputs.tag');
+    expect(preflight).toContain('ref: ${{ github.sha }}');
     expect(preflight).toContain('permissions:\n      contents: write');
     expect(android).toContain('permissions:\n      contents: read');
     expect(android).not.toContain('contents: write');
     expect(macos).toContain('permissions:\n      contents: read');
     expect(macos).not.toContain('contents: write');
     expect(publish).toContain('permissions:\n      contents: write\n      actions: read');
-    expect(release).toContain('DISPATCH_TAG: ${{ inputs.tag }}');
-    expect(release).toContain('TAG="${DISPATCH_TAG:-v$VERSION}"');
-    expect(release).not.toContain('TAG="${{ github.event_name');
+  });
+
+  it('restores signing material only after non-signing verification completes', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const android = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
+    const audit = android.indexOf('name: Audit dependencies');
+    const frontend = android.indexOf('name: Run frontend tests');
+    const core = android.indexOf('name: Test Rust game core');
+    const restore = android.indexOf('name: Restore and verify Android keystore');
+    const aab = android.indexOf('name: Build signed AAB');
+    const apk = android.indexOf('name: Build supplemental signed APK');
+    const verify = android.indexOf('name: Verify Android artifacts');
+    const cleanup = android.indexOf('name: Remove temporary signing material');
+
+    expect(audit).toBeGreaterThanOrEqual(0);
+    expect(frontend).toBeGreaterThan(audit);
+    expect(core).toBeGreaterThan(frontend);
+    expect(restore).toBeGreaterThan(core);
+    expect(aab).toBeGreaterThan(restore);
+    expect(apk).toBeGreaterThan(aab);
+    expect(verify).toBeGreaterThan(apk);
+    expect(cleanup).toBeGreaterThan(verify);
+    expect(android).toContain('if: always()');
   });
 
   it('skips immutable published versions and rejects conflicting draft tags', () => {
@@ -221,15 +244,5 @@ describe('native application configuration', () => {
     expect(release).toContain('gh release verify "$TAG" --repo "$GITHUB_REPOSITORY"');
     expect(release).toContain('gh release verify-asset "$TAG" "release/$AAB"');
     expect(release).toContain('gh release verify-asset "$TAG" "release/$CHECKSUMS"');
-  });
-
-  it('allows manual native publication only for a draft sourced from main history', () => {
-    const release = read('.github/workflows/native-release.yml');
-
-    expect(release).toContain('description: Existing draft release tag to rebuild and publish');
-    expect(release).toContain('if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]');
-    expect(release).toContain('repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$MAIN_SHA');
-    expect(release).toContain('[[ "$MAIN_RELATION" != "ahead" && "$MAIN_RELATION" != "identical" ]]');
-    expect(release).toContain('if [[ "$RELEASE_DRAFT" != "true" ]]');
   });
 });

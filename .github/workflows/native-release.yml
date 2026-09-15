@@ -5,12 +5,6 @@ on:
     branches: [main]
     paths:
       - package.json
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing draft release tag to rebuild and publish
-        required: true
-        type: string
 
 permissions: {}
 
@@ -34,58 +28,41 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Prepare draft release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          TAG="${DISPATCH_TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-
+          TAG="v$VERSION"
           SOURCE_SHA="$(git rev-parse HEAD)"
           TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
           RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)"
           RELEASE_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable 2>/dev/null || true)"
           SHOULD_BUILD=true
 
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+          if [[ "$RELEASE_DRAFT" == "false" ]]; then
+            test "$RELEASE_IMMUTABLE" = "true"
+            SHOULD_BUILD=false
+          elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
+            echo "Draft or orphan release tag $TAG belongs to another source commit: $TAG_SHA" >&2
+            exit 1
+          elif [[ "$RELEASE_DRAFT" == "true" ]]; then
             test "$TAG_SHA" = "$SOURCE_SHA"
-            MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-            MAIN_RELATION="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$MAIN_SHA" --jq .status)"
-            if [[ "$MAIN_RELATION" != "ahead" && "$MAIN_RELATION" != "identical" ]]; then
-              echo "Manual native release source must belong to main history: $SOURCE_SHA" >&2
-              exit 1
-            fi
-            if [[ "$RELEASE_DRAFT" != "true" ]]; then
-              echo "Manual native release builds require an existing draft release: $TAG" >&2
-              exit 1
-            fi
           else
-            if [[ "$RELEASE_DRAFT" == "false" ]]; then
-              test "$RELEASE_IMMUTABLE" = "true"
-              SHOULD_BUILD=false
-            elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
-              echo "Draft or orphan release tag $TAG belongs to another source commit: $TAG_SHA" >&2
-              exit 1
-            elif [[ "$RELEASE_DRAFT" == "true" ]]; then
-              test "$TAG_SHA" = "$SOURCE_SHA"
-            else
-              gh release create "$TAG" \
-                --target "$SOURCE_SHA" \
-                --title "Infinite Five $TAG" \
-                --generate-notes \
-                --draft \
-                --repo "$GITHUB_REPOSITORY"
-              TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
-              RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-              test "$TAG_SHA" = "$SOURCE_SHA"
-              test "$RELEASE_DRAFT" = "true"
-            fi
+            gh release create "$TAG" \
+              --target "$SOURCE_SHA" \
+              --title "Infinite Five $TAG" \
+              --generate-notes \
+              --draft \
+              --repo "$GITHUB_REPOSITORY"
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+            RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            test "$TAG_SHA" = "$SOURCE_SHA"
+            test "$RELEASE_DRAFT" = "true"
           fi
 
           echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
@@ -131,6 +108,15 @@ jobs:
           echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android armv7-linux-androideabi
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Test Rust game core
+        run: npm run test:core
+
       - name: Restore and verify Android keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -167,15 +153,6 @@ jobs:
 
           check_cert "$ANDROID_APP_KEY_ALIAS" "$ANDROID_APP_CERT_SHA256"
           check_cert "$ANDROID_UPLOAD_KEY_ALIAS" "$ANDROID_UPLOAD_CERT_SHA256"
-
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-
-      - name: Run frontend tests
-        run: npm test
-
-      - name: Test Rust game core
-        run: npm run test:core
 
       - name: Build signed AAB
         env:
