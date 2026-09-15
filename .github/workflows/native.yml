@@ -58,10 +58,44 @@ jobs:
       - name: Test Rust game core
         run: npm run test:core
 
-      - name: Build Android release AAB
+      - name: Temporarily enable SHA-256 metadata generation in the Gradle wrapper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src-tauri/gen/android/gradlew')
+          text = path.read_text(encoding='utf-8')
+          old = 'org.gradle.wrapper.GradleWrapperMain "$APP_ARGS"'
+          new = 'org.gradle.wrapper.GradleWrapperMain --write-verification-metadata sha256 "$APP_ARGS"'
+          if text.count(old) != 1:
+              raise SystemExit('unexpected Gradle wrapper invocation shape')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+      - name: Bootstrap SHA-256 metadata through the real Tauri AAB graph
         run: npm run tauri android build -- --aab --target aarch64 --target armv7
 
-      - name: Build Android release APK
+      - name: Extend SHA-256 metadata through the real Tauri APK graph
+        run: npm run tauri android build -- --apk --target aarch64 --target armv7
+
+      - name: Restore the committed Gradle wrapper before strict verification
+        run: |
+          git checkout -- src-tauri/gen/android/gradlew
+          git diff --exit-code -- src-tauri/gen/android/gradlew
+          test -f src-tauri/gen/android/gradle/verification-metadata.xml
+
+      - name: Upload unreviewed Gradle verification bootstrap
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: gradle-verification-sha256-bootstrap-unreviewed
+          path: src-tauri/gen/android/gradle/verification-metadata.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build Android release AAB with strict generated verification metadata
+        run: npm run tauri android build -- --aab --target aarch64 --target armv7
+
+      - name: Build Android release APK with strict generated verification metadata
         run: npm run tauri android build -- --apk --target aarch64 --target armv7
 
       - name: Verify Android package compatibility and hardening
