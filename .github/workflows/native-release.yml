@@ -8,16 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to rebuild and attach native artifacts to
+        description: Existing draft release tag to rebuild and publish
         required: true
         type: string
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
 
 concurrency:
-  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+  group: native-release
   cancel-in-progress: false
 
 jobs:
@@ -25,41 +23,10 @@ jobs:
     name: Native release preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: write
     outputs:
       should_build: ${{ steps.release.outputs.should_build }}
-    steps:
-      - name: Checkout release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
-          persist-credentials: false
-
-      - name: Decide whether native artifacts are needed
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}"
-          TAG="${TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          SHOULD_BUILD=true
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
-            SOURCE_SHA="$(git rev-parse HEAD)"
-            if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
-              SHOULD_BUILD=false
-            fi
-          fi
-          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
-
-  android:
-    needs: preflight
-    if: needs.preflight.outputs.should_build == 'true'
-    name: Signed Android AAB and supplemental APK
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       source_sha: ${{ steps.release.outputs.source_sha }}
@@ -70,26 +37,85 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
           persist-credentials: false
 
+      - name: Prepare draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${DISPATCH_TAG:-v$VERSION}"
+          test "$TAG" = "v$VERSION"
+
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
+          RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)"
+          RELEASE_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable 2>/dev/null || true)"
+          SHOULD_BUILD=true
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            test "$TAG_SHA" = "$SOURCE_SHA"
+            MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            MAIN_RELATION="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$MAIN_SHA" --jq .status)"
+            if [[ "$MAIN_RELATION" != "ahead" && "$MAIN_RELATION" != "identical" ]]; then
+              echo "Manual native release source must belong to main history: $SOURCE_SHA" >&2
+              exit 1
+            fi
+            if [[ "$RELEASE_DRAFT" != "true" ]]; then
+              echo "Manual native release builds require an existing draft release: $TAG" >&2
+              exit 1
+            fi
+          else
+            if [[ "$RELEASE_DRAFT" == "false" ]]; then
+              test "$RELEASE_IMMUTABLE" = "true"
+              SHOULD_BUILD=false
+            elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then
+              echo "Draft or orphan release tag $TAG belongs to another source commit: $TAG_SHA" >&2
+              exit 1
+            elif [[ "$RELEASE_DRAFT" == "true" ]]; then
+              test "$TAG_SHA" = "$SOURCE_SHA"
+            else
+              gh release create "$TAG" \
+                --target "$SOURCE_SHA" \
+                --title "Infinite Five $TAG" \
+                --generate-notes \
+                --draft \
+                --repo "$GITHUB_REPOSITORY"
+              TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+              RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+              test "$TAG_SHA" = "$SOURCE_SHA"
+              test "$RELEASE_DRAFT" = "true"
+            fi
+          fi
+
+          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
+    name: Signed Android AAB and supplemental APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          persist-credentials: false
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Resolve release version
-        id: release
-        env:
-          DISPATCH_TAG: ${{ inputs.tag }}
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          TAG="${DISPATCH_TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
@@ -244,8 +270,8 @@ jobs:
         with:
           name: infinite-five-signed-android
           path: |
-            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.aab
-            release/Infinite-Five-v${{ steps.release.outputs.version }}-Android.apk
+            release/Infinite-Five-v${{ needs.preflight.outputs.version }}-Android.aab
+            release/Infinite-Five-v${{ needs.preflight.outputs.version }}-Android.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -255,11 +281,15 @@ jobs:
     name: Ad-hoc signed universal macOS DMG
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
+          ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -268,16 +298,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Resolve release version
-        env:
-          DISPATCH_TAG: ${{ inputs.tag }}
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          TAG="${DISPATCH_TAG:-v$VERSION}"
-          test "$TAG" = "v$VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci
@@ -323,10 +343,17 @@ jobs:
           retention-days: 30
 
   publish:
-    name: Attach native files to GitHub Release
-    needs: [android, macos]
+    name: Publish verified native release
+    needs: [preflight, android, macos]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+      VERSION: ${{ needs.preflight.outputs.version }}
+      SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
     steps:
       - name: Download workflow artifacts
         env:
@@ -340,32 +367,82 @@ jobs:
         working-directory: release
         run: sha256sum Infinite-Five-* > SHA256SUMS.txt
 
-      - name: Wait for matching GitHub Release and upload immutable assets
+      - name: Upload verified assets to draft release and publish
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.android.outputs.tag }}
-          SOURCE_SHA: ${{ needs.android.outputs.source_sha }}
         run: |
-          for attempt in $(seq 1 30); do
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
-              test "$TAG_SHA" = "$SOURCE_SHA"
-              for asset in \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
-                "Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
-                "SHA256SUMS.txt"; do
-                test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(. == \"$asset\")] | length")" = "0"
-              done
-              gh release upload "$TAG" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.aab" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-Android.apk" \
-                "release/Infinite-Five-v${{ needs.android.outputs.version }}-macOS-universal.dmg" \
-                release/SHA256SUMS.txt \
-                --repo "$GITHUB_REPOSITORY"
+          AAB="Infinite-Five-v${VERSION}-Android.aab"
+          APK="Infinite-Five-v${VERSION}-Android.apk"
+          DMG="Infinite-Five-v${VERSION}-macOS-universal.dmg"
+          CHECKSUMS="SHA256SUMS.txt"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "true"
+
+          UNEXPECTED_ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(. != \"$AAB\" and . != \"$APK\" and . != \"$DMG\" and . != \"$CHECKSUMS\")] | length")"
+          test "$UNEXPECTED_ASSETS" = "0"
+
+          gh release upload "$TAG" \
+            "release/$AAB" \
+            "release/$APK" \
+            "release/$DMG" \
+            "release/$CHECKSUMS" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+          RELEASE_ID="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+          verify_remote_asset() {
+            local path="$1"
+            local name="${path##*/}"
+            local expected="sha256:$(sha256sum "$path" | awk '{print $1}')"
+            local actual=""
+            for attempt in $(seq 1 12); do
+              actual="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --paginate --jq ".[] | select(.name == \"$name\") | .digest")"
+              if [[ "$actual" == "$expected" ]]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "GitHub asset digest mismatch for $name: expected $expected, got ${actual:-missing}" >&2
+            return 1
+          }
+
+          verify_remote_asset "release/$AAB"
+          verify_remote_asset "release/$APK"
+          verify_remote_asset "release/$DMG"
+          verify_remote_asset "release/$CHECKSUMS"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "true"
+          verify_remote_asset "release/$AAB"
+          verify_remote_asset "release/$APK"
+          verify_remote_asset "release/$DMG"
+          verify_remote_asset "release/$CHECKSUMS"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
+
+          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          IS_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable)"
+          test "$TAG_SHA" = "$SOURCE_SHA"
+          test "$IS_DRAFT" = "false"
+          test "$IS_IMMUTABLE" = "true"
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = "4"
+
+          for attempt in $(seq 1 12); do
+            if gh release verify "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$AAB" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$APK" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$DMG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              && gh release verify-asset "$TAG" "release/$CHECKSUMS" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
               exit 0
             fi
-            sleep 10
+            sleep 5
           done
-          echo "Release $TAG was not created within the wait window." >&2
+          echo "Immutable release attestation for $TAG was not verifiable within the wait window." >&2
           exit 1
