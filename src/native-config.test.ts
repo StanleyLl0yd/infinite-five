@@ -169,6 +169,19 @@ describe('native application configuration', () => {
     expect(verifier).not.toContain('sort -V | tail -n 1');
   });
 
+  it('pins macOS native builds to the verified Xcode and SDK toolchain', () => {
+    const native = read('.github/workflows/native.yml');
+    const release = read('.github/workflows/native-release.yml');
+
+    for (const workflow of [native, release]) {
+      expect(workflow).toContain('DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer');
+      expect(workflow).toContain('name: Verify Xcode toolchain');
+      expect(workflow).toContain('= "Xcode 16.4"');
+      expect(workflow).toContain('= "Build version 16F6"');
+      expect(workflow).toContain('xcrun --sdk macosx --show-sdk-version)" = "15.5"');
+    }
+  });
+
   it('keeps one controlled draft-to-immutable release workflow', () => {
     const release = read('.github/workflows/native-release.yml');
 
