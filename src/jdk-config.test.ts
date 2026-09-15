@@ -33,8 +33,11 @@ describe('Android JDK reproducibility', () => {
       expect(android).toContain('java-version-file: .java-version');
       expect(android).toContain('check-latest: false');
       expect(android).toContain('name: Verify Android JDK');
-      expect(android).toContain('Temurin-${EXPECTED_JAVA_VERSION}');
-      expect(android).toContain('build ${EXPECTED_JAVA_VERSION}');
+      expect(android).toContain('EXPECTED_JAVA_MAJOR="${EXPECTED_JAVA_VERSION%%.*}"');
+      expect(android).toContain('test "$(command -v java)" = "$JAVA_HOME/bin/java"');
+      expect(android).toContain('java.vendor = Eclipse Adoptium');
+      expect(android).toContain('java.specification.version = $EXPECTED_JAVA_MAJOR');
+      expect(android).toContain('OpenJDK Runtime Environment Temurin-');
       expect(android.indexOf('name: Set up pinned Android JDK')).toBeLessThan(
         android.indexOf('name: Configure Android SDK, NDK and Rust targets'),
       );
