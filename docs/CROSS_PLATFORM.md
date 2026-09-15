@@ -65,22 +65,22 @@ Android is the first planned native distribution target. The production applicat
 
 For the first RuStore release, keep native integrations limited to what is already required by the game and distribution: lifecycle/back handling, sharing/haptics where used, release signing, store-safe versioning and minimum Android permissions. The RuStore In-App Updates SDK is intentionally deferred until the first RuStore application entry exists and its real update flow can be validated. Any later RuStore-specific SDK integration must stay isolated in the Android/Kotlin native layer so the shared TypeScript UI and Rust game core remain store-neutral.
 
-Release AABs and supplemental APKs are produced only from the tagged release source. The AAB is the primary store artifact and uses the upload-key alias expected by the store workflow; the APK is supplemental direct-install output and uses the application-signing alias. Android production packages contain only `arm64-v8a` and `armeabi-v7a`. The project baseline is `minSdk 26`, `targetSdk 36`, `compileSdk 36`, with NDK `29.0.14206865`. The release workflow verifies certificate SHA-256 fingerprints before building, verifies the resulting signatures, and rejects artifacts that fail the expected ABI set, 16 KB ELF LOAD alignment, APK 16 KB zip alignment, or AAB `PAGE_ALIGNMENT_16K` checks.
+Release AABs and supplemental APKs are produced only from the tagged release source. The AAB is the primary store artifact and uses the upload-key alias expected by the store workflow; the APK is supplemental direct-install output and uses the application-signing alias. Android production packages contain only `arm64-v8a` and `armeabi-v7a`. The project baseline is `minSdk 26`, `targetSdk 36`, `compileSdk 36`, with NDK `29.0.14206865`. The release workflow verifies certificate SHA-256 fingerprints against the reviewed `.github/android-signing-identities.json` source of truth before building, verifies the resulting signatures against the same committed identities, and rejects artifacts that fail the expected ABI set, 16 KB ELF LOAD alignment, APK 16 KB zip alignment, or AAB `PAGE_ALIGNMENT_16K` checks.
 
-The Android release secret contract is:
+The private Android release secret contract is:
 
 - `ANDROID_KEYSTORE_BASE64` — base64-encoded Java keystore;
 - `ANDROID_KEYSTORE_PASSWORD` — keystore password;
 - `ANDROID_APP_KEY_ALIAS` — application-signing alias used for the APK;
 - `ANDROID_APP_KEY_PASSWORD` — application-signing key password;
-- `ANDROID_APP_CERT_SHA256` — expected application-signing certificate SHA-256 fingerprint;
 - `ANDROID_UPLOAD_KEY_ALIAS` — upload-key alias used for the AAB;
-- `ANDROID_UPLOAD_KEY_PASSWORD` — upload-key password;
-- `ANDROID_UPLOAD_CERT_SHA256` — expected upload certificate SHA-256 fingerprint.
+- `ANDROID_UPLOAD_KEY_PASSWORD` — upload-key password.
+
+The canonical public signing identities are committed separately in `.github/android-signing-identities.json`. For the current v0.6.3 signing lineage, both the supplemental APK application-signing certificate and the AAB upload certificate have SHA-256 fingerprint `f02571c40741e2cb071564f5b63fd3dc38a875d0eda11a8c42269ed635bc2a58`. The two roles remain separate config fields even while they resolve to the same certificate. Any future signing-key rotation must update the relevant committed fingerprint through an explicit reviewed migration change; aliases, keystore bytes and passwords remain private.
 
 If the initial keystore contains only one suitable key, the app and upload aliases can temporarily point to the same key, but a separate upload key is preferred for the RuStore AAB lifecycle. RuStore may additionally require the encrypted application-signing key export and upload certificate during first-time AAB signing setup; those store enrollment files are separate from GitHub release artifacts.
 
-`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Signing material belongs in GitHub Secrets or the release environment, never in Git. Native Release runs dependency audit and frontend/Rust tests before decoding the JKS; it restores and verifies signing material only immediately before the signed Android build and removes the temporary keystore/properties with an `always()` cleanup. The workflow verifies certificate fingerprints before signing and validates the resulting APK/AAB signatures before publishing.
+`keystore.properties`, keystores and certificate containers are ignored by Git and are generated only on the ephemeral CI runner. Private signing material belongs in GitHub Secrets or the release environment, never in Git. Native Release runs dependency audit and frontend/Rust tests before decoding the JKS; it loads and validates the reviewed public fingerprints first, restores and verifies private signing material only immediately before the signed Android build, and removes the temporary keystore/properties with an `always()` cleanup. The workflow verifies the keystore aliases against the committed certificate fingerprints before signing and validates the resulting APK/AAB signatures against those same fingerprints before publishing.
 
 ## macOS
 
