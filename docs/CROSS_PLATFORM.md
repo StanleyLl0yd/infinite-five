@@ -88,6 +88,8 @@ macOS is a supported native target in the architecture even if it is not the fir
 
 Release v0.6.3 produces a universal Apple Silicon + Intel DMG with an ad-hoc signature. It is usable for direct testing and manual distribution, but macOS can still require the user to allow the application in Privacy & Security. It is not equivalent to a Developer ID signed and notarized public release.
 
+GitHub native/release jobs pin `DEVELOPER_DIR` to Xcode 16.4 (`16F6`) and fail closed unless that toolchain reports macOS SDK 15.5. The `macos-15` runner label may continue to receive image updates, but those updates must not silently switch the compiler/SDK used for the verified DMG. Any Xcode or macOS SDK upgrade is a reviewed toolchain change and must pass the universal DMG build and verification gates before adoption.
+
 When the required Apple developer access becomes available, replace ad-hoc signing with a `Developer ID Application` certificate stored in CI secrets and enable notarization. The game code and bundle identifier must remain unchanged during that transition.
 
 ## Native release artifacts
