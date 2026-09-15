@@ -18,6 +18,8 @@ const nodeWorkflows = [
   '.github/workflows/native-release.yml',
 ];
 
+const rustBootstrap = 'python3 scripts/install-rust-toolchain.py';
+
 describe('Rust toolchain reproducibility', () => {
   it('pins the repository Rust compiler and Clippy component', () => {
     const toolchain = read('rust-toolchain.toml');
@@ -36,6 +38,44 @@ describe('Rust toolchain reproducibility', () => {
       expect(workflow).not.toContain('rustup default stable');
       expect(workflow).not.toContain('rustup update stable');
     }
+  });
+
+  it('installs the pinned toolchain explicitly before workflow Rust entry points', () => {
+    const ci = read('.github/workflows/ci.yml');
+    const deploy = read('.github/workflows/deploy.yml');
+    const native = read('.github/workflows/native.yml');
+    const release = read('.github/workflows/native-release.yml');
+    const security = read('.github/workflows/security.yml');
+
+    expect(ci.match(/python3 scripts\/install-rust-toolchain\.py/g)).toHaveLength(1);
+    expect(deploy.match(/python3 scripts\/install-rust-toolchain\.py/g)).toHaveLength(1);
+    expect(native.match(/python3 scripts\/install-rust-toolchain\.py/g)).toHaveLength(2);
+    expect(release.match(/python3 scripts\/install-rust-toolchain\.py/g)).toHaveLength(2);
+    expect(security.match(/python3 scripts\/install-rust-toolchain\.py/g)).toHaveLength(1);
+
+    expect(ci.indexOf(rustBootstrap)).toBeLessThan(ci.indexOf('rustup target add wasm32-unknown-unknown'));
+    expect(deploy.indexOf(rustBootstrap)).toBeLessThan(deploy.indexOf('run: npm run test:core'));
+
+    const nativeAndroid = native.slice(native.indexOf('\n  android:'), native.indexOf('\n  macos:'));
+    const nativeMacos = native.slice(native.indexOf('\n  macos:'));
+    expect(nativeAndroid.indexOf(rustBootstrap)).toBeLessThan(nativeAndroid.indexOf('rustup target add aarch64-linux-android'));
+    expect(nativeMacos.indexOf(rustBootstrap)).toBeLessThan(nativeMacos.indexOf('rustup target add aarch64-apple-darwin'));
+
+    const releaseAndroid = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
+    const releaseMacos = release.slice(release.indexOf('\n  macos:'), release.indexOf('\n  publish:'));
+    expect(releaseAndroid.indexOf(rustBootstrap)).toBeLessThan(releaseAndroid.indexOf('rustup target add aarch64-linux-android'));
+    expect(releaseMacos.indexOf(rustBootstrap)).toBeLessThan(releaseMacos.indexOf('rustup target add aarch64-apple-darwin'));
+    expect(security.indexOf(rustBootstrap)).toBeLessThan(security.indexOf('run: cargo audit --file crates/game-core/Cargo.lock'));
+  });
+
+  it('derives rustup install arguments from the checked toolchain file', () => {
+    const script = read('scripts/install-rust-toolchain.py');
+
+    expect(script).toContain("tomllib.loads(path.read_text(encoding='utf-8'))");
+    expect(script).toContain("expected_keys = {'channel', 'profile', 'components'}");
+    expect(script).toContain("['rustup', 'toolchain', 'install', channel, '--profile', profile]");
+    expect(script).toContain("['rustup', 'run', channel, 'rustc', '--version']");
+    expect(script).not.toContain('1.98.1');
   });
 });
 

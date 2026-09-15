@@ -43,6 +43,9 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
       - name: Test Rust game core
         run: npm run test:core
 
