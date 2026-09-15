@@ -93,6 +93,25 @@ jobs:
           ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
 
+      - name: Set up pinned Android JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          check-latest: false
+
+      - name: Verify Android JDK
+        run: |
+          EXPECTED_JAVA_VERSION="$(tr -d '\r\n' < .java-version)"
+          EXPECTED_JAVA_MAJOR="${EXPECTED_JAVA_VERSION%%.*}"
+          test -n "$EXPECTED_JAVA_VERSION"
+          test -n "$JAVA_HOME"
+          test "$(command -v java)" = "$JAVA_HOME/bin/java"
+          java -XshowSettings:properties -version 2>&1 | tee "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.vendor = Eclipse Adoptium" "$RUNNER_TEMP/java-version.txt"
+          grep -F "java.specification.version = $EXPECTED_JAVA_MAJOR" "$RUNNER_TEMP/java-version.txt"
+          grep -F "OpenJDK Runtime Environment Temurin-" "$RUNNER_TEMP/java-version.txt"
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
