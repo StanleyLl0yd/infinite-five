@@ -152,6 +152,23 @@ describe('native application configuration', () => {
     expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
   });
 
+  it('pins Android package verification to the AGP 8.11 Build Tools baseline', () => {
+    const native = read('.github/workflows/native.yml');
+    const release = read('.github/workflows/native-release.yml');
+    const verifier = read('scripts/verify-android-native.sh');
+
+    expect(native).toContain("ANDROID_BUILD_TOOLS_VERSION: '35.0.0'");
+    expect(release).toContain("ANDROID_BUILD_TOOLS_VERSION: '35.0.0'");
+    for (const workflow of [native, release]) {
+      expect(workflow).toContain('"build-tools;$ANDROID_BUILD_TOOLS_VERSION"');
+      expect(workflow).not.toMatch(/build-tools.*sort -V.*tail -n 1/);
+    }
+    expect(verifier).toContain('ANDROID_BUILD_TOOLS_VERSION="${ANDROID_BUILD_TOOLS_VERSION:-35.0.0}"');
+    expect(verifier).toContain('BUILD_TOOLS_DIR="${ANDROID_HOME:?ANDROID_HOME is required}/build-tools/$ANDROID_BUILD_TOOLS_VERSION"');
+    expect(verifier).toContain('ZIPALIGN="${ZIPALIGN:-$BUILD_TOOLS_DIR/zipalign}"');
+    expect(verifier).not.toContain('sort -V | tail -n 1');
+  });
+
   it('keeps one controlled draft-to-immutable release workflow', () => {
     const release = read('.github/workflows/native-release.yml');
 
