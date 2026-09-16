@@ -74,6 +74,9 @@ jobs:
           install -m 0755 "$AUDIT_BIN" "$RUNNER_TEMP/bin/cargo-audit"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      - name: Install pinned Rust toolchain
+        run: python3 scripts/install-rust-toolchain.py
+
       - name: Audit Rust game-core dependencies
         run: cargo audit --file crates/game-core/Cargo.lock
 
