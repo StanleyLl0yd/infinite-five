@@ -46,11 +46,11 @@ jobs:
       - name: Test Rust game core
         run: npm run test:core
 
-      - name: Install Binaryen
+      - name: Install pinned Binaryen
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends binaryen
-          wasm-opt --version
+          sudo apt-get install --yes --no-install-recommends binaryen=108-1
+          test "$(wasm-opt --version)" = "wasm-opt version 108"
 
       - name: Build and verify production bundle
         run: npm run build
