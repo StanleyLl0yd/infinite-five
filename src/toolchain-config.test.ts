@@ -65,7 +65,9 @@ describe('Rust toolchain reproducibility', () => {
     const releaseMacos = release.slice(release.indexOf('\n  macos:'), release.indexOf('\n  publish:'));
     expect(releaseAndroid.indexOf(rustBootstrap)).toBeLessThan(releaseAndroid.indexOf('rustup target add aarch64-linux-android'));
     expect(releaseMacos.indexOf(rustBootstrap)).toBeLessThan(releaseMacos.indexOf('rustup target add aarch64-apple-darwin'));
-    expect(security.indexOf(rustBootstrap)).toBeLessThan(security.indexOf('run: cargo audit --file crates/game-core/Cargo.lock'));
+    expect(security.indexOf(rustBootstrap)).toBeLessThan(
+      security.indexOf('run: cargo audit --deny unsound --file crates/game-core/Cargo.lock'),
+    );
   });
 
   it('derives rustup install arguments from the checked toolchain file', () => {

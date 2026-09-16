@@ -8,12 +8,13 @@ const SECURITY_AUDIT_SHA256 = [
   '5509b33efc0c08e2134ccb76f2c7172065f7ba4a89f28799661029e274c306c7',
   'b109a039df712f30c6d3e25e1e8358053fd0f1c91b92d0e8d2871cd141fe602f',
 ] as const;
-const DUAL_BASELINE_EXPIRES = '2026-09-23';
 const SECRETS_URL = 'https://semgrep.dev/c/p/secrets';
 const RULESET_B_SHA256 = [
   '139b35ad3442bc83d1f0864db82fa4fdc7e1f1ee4b5ac872bfbeb604c82c6518',
   '7c0b0163d7cbfe44f16cec78556662655bedeec1d41c6e091ddef5d85c1d5eff',
 ] as const;
+const GLIB_UNSOUND_ADVISORY = 'RUSTSEC-2024-0429';
+const GLIB_UNSOUND_EXCEPTION_EXPIRES = '2026-12-31';
 
 describe('security workflow supply-chain pins', () => {
   it('pins the Semgrep container by version and immutable digest', () => {
@@ -27,13 +28,9 @@ describe('security workflow supply-chain pins', () => {
     const workflow = readFileSync('.github/workflows/security.yml', 'utf8');
 
     expect(workflow).toContain(SECURITY_AUDIT_URL);
-    for (const digest of SECURITY_AUDIT_SHA256) {
-      expect(workflow).toContain(digest);
-    }
+    for (const digest of SECURITY_AUDIT_SHA256) expect(workflow).toContain(digest);
     expect(workflow).toContain(SECRETS_URL);
-    for (const digest of RULESET_B_SHA256) {
-      expect(workflow).toContain(digest);
-    }
+    for (const digest of RULESET_B_SHA256) expect(workflow).toContain(digest);
     expect(workflow).toContain('DUAL_BASELINE_EXPIRES = date(2026, 9, 23)');
     expect(workflow).toContain('if date.today() > DUAL_BASELINE_EXPIRES:');
     expect(workflow).toContain('actual = hashlib.sha256(data).hexdigest()');
@@ -51,5 +48,35 @@ describe('security workflow supply-chain pins', () => {
     expect(digestCheck).toBeGreaterThan(expiryCheck);
     expect(configWrite).toBeGreaterThan(digestCheck);
     expect(scan).toBeGreaterThan(configWrite);
+  });
+
+  it('fails closed on RustSec unsound advisories with one live, expiring upstream exception', () => {
+    const workflow = readFileSync('.github/workflows/security.yml', 'utf8');
+    const gameCoreAudit = 'cargo audit --deny unsound --file crates/game-core/Cargo.lock';
+    const strictNativeAudit = 'cargo audit --deny unsound --file src-tauri/Cargo.lock';
+    const nativeAudit =
+      'cargo audit --deny unsound --ignore "$GLIB_UNSOUND_ADVISORY" --file src-tauri/Cargo.lock';
+
+    expect(workflow).toContain(`GLIB_UNSOUND_ADVISORY: ${GLIB_UNSOUND_ADVISORY}`);
+    expect(workflow).toContain(`GLIB_UNSOUND_EXCEPTION_EXPIRES: '${GLIB_UNSOUND_EXCEPTION_EXPIRES}'`);
+    expect(workflow).toContain("expiry = date.fromisoformat(os.environ['GLIB_UNSOUND_EXCEPTION_EXPIRES'])");
+    expect(workflow).toContain('if today > expiry:');
+    expect(workflow).toContain(gameCoreAudit);
+    expect(workflow).toContain(`output="$(cargo audit --deny unsound --file src-tauri/Cargo.lock 2>&1)"`);
+    expect(workflow).toContain('if [ "$status" -eq 0 ]; then');
+    expect(workflow).toContain('grep -Fq "$GLIB_UNSOUND_ADVISORY" <<<"$output"');
+    expect(workflow).toContain(nativeAudit);
+    expect(workflow.match(/--ignore/g)).toHaveLength(1);
+
+    const expiryGuard = workflow.indexOf('if today > expiry:');
+    const gameCoreAuditIndex = workflow.indexOf(gameCoreAudit);
+    const strictNativeAuditIndex = workflow.indexOf(strictNativeAudit, gameCoreAuditIndex + 1);
+    const exceptionProof = workflow.indexOf('grep -Fq "$GLIB_UNSOUND_ADVISORY" <<<"$output"');
+    const nativeAuditIndex = workflow.indexOf(nativeAudit);
+    expect(expiryGuard).toBeGreaterThan(-1);
+    expect(gameCoreAuditIndex).toBeGreaterThan(expiryGuard);
+    expect(strictNativeAuditIndex).toBeGreaterThan(gameCoreAuditIndex);
+    expect(exceptionProof).toBeGreaterThan(strictNativeAuditIndex);
+    expect(nativeAuditIndex).toBeGreaterThan(exceptionProof);
   });
 });
