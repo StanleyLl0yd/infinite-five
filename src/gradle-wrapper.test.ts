@@ -3,18 +3,24 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const WRAPPER_JAR = 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.jar';
-// Gradle's published checksum reference identifies this as an official wrapper JAR
-// used by releases including 6.6 through 7.0.1. It is trusted but older than the
-// configured 8.14.3 distribution; version alignment is tracked separately.
-const COMMITTED_OFFICIAL_WRAPPER_SHA256 = 'e996d452d2645e70c01c11143ca2d3742734a28da2bf61f25c82bdc288c9e637';
+const WRAPPER_PROPERTIES = 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties';
+const GRADLE_8_14_3_WRAPPER_SHA256 = '7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172';
+const GRADLE_8_14_3_DISTRIBUTION_SHA256 = 'bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531';
 const WRAPPER_VALIDATION_ACTION =
   'gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0';
 
 describe('Gradle wrapper supply-chain validation', () => {
-  it('pins the committed wrapper JAR to its published official checksum', () => {
+  it('pins the committed wrapper JAR to Gradle 8.14.3', () => {
     const actual = createHash('sha256').update(readFileSync(WRAPPER_JAR)).digest('hex');
 
-    expect(actual).toBe(COMMITTED_OFFICIAL_WRAPPER_SHA256);
+    expect(actual).toBe(GRADLE_8_14_3_WRAPPER_SHA256);
+  });
+
+  it('pins the Gradle 8.14.3 binary distribution checksum independently', () => {
+    const properties = readFileSync(WRAPPER_PROPERTIES, 'utf8');
+
+    expect(properties).toContain('distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip');
+    expect(properties).toContain(`distributionSha256Sum=${GRADLE_8_14_3_DISTRIBUTION_SHA256}`);
   });
 
   it('runs official wrapper validation before the required Android build', () => {
