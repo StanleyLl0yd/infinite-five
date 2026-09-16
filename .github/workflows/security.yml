@@ -29,8 +29,56 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Download and verify Semgrep Registry rules
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from datetime import date
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          SECURITY_AUDIT_ALLOWED_SHA256 = {
+              '5509b33efc0c08e2134ccb76f2c7172065f7ba4a89f28799661029e274c306c7',
+              'b109a039df712f30c6d3e25e1e8358053fd0f1c91b92d0e8d2871cd141fe602f',
+          }
+          RULESET_B_ALLOWED_SHA256 = {
+              '139b35ad3442bc83d1f0864db82fa4fdc7e1f1ee4b5ac872bfbeb604c82c6518',
+              '7c0b0163d7cbfe44f16cec78556662655bedeec1d41c6e091ddef5d85c1d5eff',
+          }
+          DUAL_BASELINE_EXPIRES = date(2026, 9, 23)
+          if date.today() > DUAL_BASELINE_EXPIRES:
+              raise SystemExit(
+                  'Temporary dual Semgrep Registry baseline expired on '
+                  f'{DUAL_BASELINE_EXPIRES.isoformat()}; re-measure the Registry fleet and collapse both allowlists.'
+              )
+          configs = (
+              ('security-audit', 'https://semgrep.dev/c/p/security-audit', SECURITY_AUDIT_ALLOWED_SHA256),
+              ('secrets', 'https://semgrep.dev/c/p/secrets', RULESET_B_ALLOWED_SHA256),
+          )
+          env_file = Path(os.environ['GITHUB_ENV'])
+          temp = Path(os.environ['RUNNER_TEMP'])
+          with env_file.open('a', encoding='utf-8') as env:
+              for name, url, expected in configs:
+                  request = Request(url, headers={'Accept': 'application/json', 'User-Agent': 'infinite-five-ci'})
+                  with urlopen(request, timeout=60) as response:
+                      data = response.read()
+                  actual = hashlib.sha256(data).hexdigest()
+                  if actual not in expected:
+                      expected_text = ', '.join(sorted(expected))
+                      raise SystemExit(
+                          f'Semgrep Registry digest mismatch for {name}: expected one of [{expected_text}], got {actual}'
+                      )
+                  path = temp / f'semgrep-{name}.json'
+                  path.write_bytes(data)
+                  print(f'Verified Semgrep Registry rules: {name} sha256:{actual}')
+                  env_name = 'SEMGREP_' + name.upper().replace('-', '_') + '_CONFIG'
+                  env.write(f'{env_name}={path}\n')
+          PY
+
       - name: Run Semgrep CE
-        run: semgrep scan --config p/security-audit --config p/secrets --error --metrics=off .
+        run: semgrep scan --config "$SEMGREP_SECURITY_AUDIT_CONFIG" --config "$SEMGREP_SECRETS_CONFIG" --error --metrics=off .
 
   gitleaks:
     name: Gitleaks
