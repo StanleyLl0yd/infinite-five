@@ -38,7 +38,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "Release v$VERSION already exists."
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$VERSION" --jq .sha)"
+            test "$TAG_SHA" = "$GITHUB_SHA"
+            echo "Release v$VERSION already exists for this source commit."
             exit 0
           fi
           gh release create "v$VERSION" \

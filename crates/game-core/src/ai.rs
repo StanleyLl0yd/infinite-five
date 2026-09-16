@@ -309,13 +309,12 @@ fn ranked_candidates(board: &Board, mark: Mark) -> Vec<RankedMove> {
 }
 
 fn immediate_threat_count(board: &mut Board, mark: Mark, limit: usize) -> usize {
-    let candidates = ranked_candidates(board, mark)
+    let mut count = 0;
+    for candidate in ranked_candidates(board, mark)
         .into_iter()
         .take(28)
         .map(|entry| entry.position)
-        .collect::<Vec<_>>();
-    let mut count = 0;
-    for candidate in candidates {
+    {
         if is_winning_move(board, candidate, mark) {
             count += 1;
             if count >= limit {
@@ -370,7 +369,7 @@ fn find_double_threat_moves(
     result
 }
 
-fn static_evaluation(board: &mut Board, mark: Mark) -> f64 {
+fn static_evaluation(board: &Board, mark: Mark) -> f64 {
     let own = ranked_candidates(board, mark);
     let enemy = ranked_candidates(board, mark.opponent());
     let own_score = own
@@ -946,7 +945,6 @@ fn normalize_ai_parameters(
             .clamp(1, MAX_AI_DEPTH),
     )
 }
-
 
 pub fn choose_ai_move(
     board: &mut Board,
