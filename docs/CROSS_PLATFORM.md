@@ -92,9 +92,9 @@ When the required Apple developer access becomes available, replace ad-hoc signi
 
 ## Native release artifacts
 
-`.github/workflows/native-release.yml` is the controlled packaging path for native release files. A version-changing push to `main` builds from that exact release commit while the Release workflow creates the matching tag; manual dispatch remains available for deterministic rebuilds from an existing tag. The resolved tag must match the version in `package.json`.
+`.github/workflows/native-release.yml` is the single controlled release path. For an automatic version-changing push to `main`, its preflight creates the matching GitHub Release as a draft for that exact source commit, records the source SHA, and makes Android and macOS jobs check out that immutable commit identity rather than re-resolving the draft tag. The same workflow builds and verifies the native packages, stages the expected files and `SHA256SUMS.txt` on the draft release, and publishes only after the complete verified artifact set is present. Repository Release Immutability must be enabled so publication locks the release tag and attached assets.
 
-For each successful run it builds and verifies:
+For each successful run the controlled pipeline builds and verifies:
 
 ```text
 Infinite-Five-v<version>-Android.aab
@@ -103,7 +103,9 @@ Infinite-Five-v<version>-macOS-universal.dmg
 SHA256SUMS.txt
 ```
 
-The workflow retains the files as GitHub Actions artifacts and attaches them to the matching GitHub Release. Automatic release builds use the exact `main` release commit; manual rebuilds use the immutable release tag.
+Automatic release builds use the exact version-changing `main` commit. Manual native publication is allowed only for an existing draft release whose tag resolves to a commit already in `main` history and whose version matches `package.json`; an already published immutable release is final and must not accept rebuilt or replacement assets. Draft retries may replace only the expected artifact names, while any unexpected attachment blocks publication. Before publication, the workflow requires exactly the four expected assets, compares each GitHub-hosted asset SHA-256 digest with the locally verified file, and rechecks tag-to-source identity. After publication it rechecks the tag, requires `isImmutable=true`, preserves the exact four-asset set, and verifies the GitHub release attestation and each local artifact against it.
+
+Existing releases published before repository Release Immutability was enabled are not retroactively made immutable. Do not describe or treat those historical releases as immutable merely because future releases use this flow.
 
 ## iOS
 

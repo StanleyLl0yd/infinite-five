@@ -152,19 +152,84 @@ describe('native application configuration', () => {
     expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
   });
 
-  it('rejects reusing a release version for a different source commit', () => {
-    const release = read('.github/workflows/release.yml');
-
-    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$VERSION" --jq .sha)"');
-    expect(release).toContain('test "$TAG_SHA" = "$GITHUB_SHA"');
-  });
-
-  it('skips automatic native rebuilds when the version tag belongs to an older source', () => {
+  it('keeps one controlled draft-to-immutable release workflow', () => {
     const release = read('.github/workflows/native-release.yml');
 
-    expect(release).toContain('name: Native release preflight');
-    expect(release).toContain('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"');
-    expect(release).toContain('if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]');
-    expect(release).toContain("if: needs.preflight.outputs.should_build == 'true'");
+    expect(existsSync('.github/workflows/release.yml')).toBe(false);
+    expect(release).toContain('group: native-release');
+    expect(release).toContain('name: Prepare draft release');
+    expect(release).toContain('gh release create "$TAG"');
+    expect(release).toContain('--target "$SOURCE_SHA"');
+    expect(release).toContain('--draft');
+    expect(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.source_sha \}\}/g)).toHaveLength(2);
+  });
+
+  it('limits release write permission to lifecycle jobs and keeps dispatch input out of shell expressions', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const preflight = release.slice(release.indexOf('\n  preflight:'), release.indexOf('\n  android:'));
+    const android = release.slice(release.indexOf('\n  android:'), release.indexOf('\n  macos:'));
+    const macos = release.slice(release.indexOf('\n  macos:'), release.indexOf('\n  publish:'));
+    const publish = release.slice(release.indexOf('\n  publish:'));
+
+    expect(release).toContain('permissions: {}');
+    expect(preflight).toContain('permissions:\n      contents: write');
+    expect(android).toContain('permissions:\n      contents: read');
+    expect(android).not.toContain('contents: write');
+    expect(macos).toContain('permissions:\n      contents: read');
+    expect(macos).not.toContain('contents: write');
+    expect(publish).toContain('permissions:\n      contents: write\n      actions: read');
+    expect(release).toContain('DISPATCH_TAG: ${{ inputs.tag }}');
+    expect(release).toContain('TAG="${DISPATCH_TAG:-v$VERSION}"');
+    expect(release).not.toContain('TAG="${{ github.event_name');
+  });
+
+  it('skips immutable published versions and rejects conflicting draft tags', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const published = release.indexOf('if [[ "$RELEASE_DRAFT" == "false" ]]');
+    const conflict = release.indexOf('elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]', published);
+
+    expect(published).toBeGreaterThanOrEqual(0);
+    expect(conflict).toBeGreaterThan(published);
+    expect(release.slice(published, conflict)).toContain('test "$RELEASE_IMMUTABLE" = "true"');
+    expect(release.slice(published, conflict)).toContain('SHOULD_BUILD=false');
+    expect(release).toContain('Draft or orphan release tag $TAG belongs to another source commit');
+  });
+
+  it('stages and verifies the exact release asset set before immutable publication', () => {
+    const release = read('.github/workflows/native-release.yml');
+    const upload = release.indexOf('gh release upload "$TAG"');
+    const digestVerification = release.indexOf('verify_remote_asset()', upload);
+    const provenanceRecheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', digestVerification);
+    const finalDigestVerification = release.lastIndexOf('verify_remote_asset "release/$CHECKSUMS"');
+    const publish = release.indexOf('gh release edit "$TAG" --draft=false');
+    const postPublishCheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', publish);
+
+    expect(release).toContain('test "$UNEXPECTED_ASSETS" = "0"');
+    expect(release).toContain('--clobber');
+    expect(upload).toBeGreaterThanOrEqual(0);
+    expect(digestVerification).toBeGreaterThan(upload);
+    expect(release).toContain('.digest")');
+    expect(release.match(/verify_remote_asset "release\/\$AAB"/g)).toHaveLength(2);
+    expect(release.match(/verify_remote_asset "release\/\$CHECKSUMS"/g)).toHaveLength(2);
+    expect(release).toContain("--jq '.assets | length')\" = \"4\"");
+    expect(provenanceRecheck).toBeGreaterThan(digestVerification);
+    expect(finalDigestVerification).toBeGreaterThan(provenanceRecheck);
+    expect(publish).toBeGreaterThan(finalDigestVerification);
+    expect(postPublishCheck).toBeGreaterThan(publish);
+    expect(release).toContain('--json isImmutable --jq .isImmutable');
+    expect(release).toContain('test "$IS_IMMUTABLE" = "true"');
+    expect(release).toContain('gh release verify "$TAG" --repo "$GITHUB_REPOSITORY"');
+    expect(release).toContain('gh release verify-asset "$TAG" "release/$AAB"');
+    expect(release).toContain('gh release verify-asset "$TAG" "release/$CHECKSUMS"');
+  });
+
+  it('allows manual native publication only for a draft sourced from main history', () => {
+    const release = read('.github/workflows/native-release.yml');
+
+    expect(release).toContain('description: Existing draft release tag to rebuild and publish');
+    expect(release).toContain('if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]');
+    expect(release).toContain('repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$MAIN_SHA');
+    expect(release).toContain('[[ "$MAIN_RELATION" != "ahead" && "$MAIN_RELATION" != "identical" ]]');
+    expect(release).toContain('if [[ "$RELEASE_DRAFT" != "true" ]]');
   });
 });
