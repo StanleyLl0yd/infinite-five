@@ -117,16 +117,31 @@ jobs:
       - name: Test Rust game core
         run: npm run test:core
 
+      - name: Load canonical Android signing identities
+        run: |
+          node - <<'NODE' >> "$GITHUB_ENV"
+          const { readFileSync } = require('node:fs');
+          const identities = JSON.parse(readFileSync('.github/android-signing-identities.json', 'utf8'));
+          const values = {
+            ANDROID_APP_CERT_SHA256: identities.applicationSigningCertificateSha256,
+            ANDROID_UPLOAD_CERT_SHA256: identities.uploadCertificateSha256,
+          };
+          for (const [name, value] of Object.entries(values)) {
+            if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
+              throw new Error(`Invalid canonical Android signing fingerprint: ${name}`);
+            }
+            console.log(`${name}=${value}`);
+          }
+          NODE
+
       - name: Restore and verify Android keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_APP_KEY_ALIAS: ${{ secrets.ANDROID_APP_KEY_ALIAS }}
           ANDROID_APP_KEY_PASSWORD: ${{ secrets.ANDROID_APP_KEY_PASSWORD }}
-          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
           ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
           ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
-          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           test -n "$ANDROID_KEYSTORE_BASE64"
           test -n "$ANDROID_KEYSTORE_PASSWORD"
@@ -210,9 +225,6 @@ jobs:
           cp "$APK" "release/Infinite-Five-v${VERSION}-Android.apk"
 
       - name: Verify Android artifacts
-        env:
-          ANDROID_APP_CERT_SHA256: ${{ secrets.ANDROID_APP_CERT_SHA256 }}
-          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           APK="release/Infinite-Five-v${VERSION}-Android.apk"
           AAB="release/Infinite-Five-v${VERSION}-Android.aab"
