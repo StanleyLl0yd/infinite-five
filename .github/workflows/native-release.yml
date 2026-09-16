@@ -288,12 +288,19 @@ jobs:
       contents: read
     env:
       VERSION: ${{ needs.preflight.outputs.version }}
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.preflight.outputs.source_sha }}
           persist-credentials: false
+
+      - name: Verify Xcode toolchain
+        run: |
+          test "$(xcodebuild -version | sed -n '1p')" = "Xcode 16.4"
+          test "$(xcodebuild -version | sed -n '2p')" = "Build version 16F6"
+          test "$(xcrun --sdk macosx --show-sdk-version)" = "15.5"
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
