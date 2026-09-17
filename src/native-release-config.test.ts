@@ -14,4 +14,34 @@ describe('native release preflight', () => {
       'TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"',
     );
   });
+
+  it('keeps the production release trigger narrow and manifest-driven', () => {
+    expect(release).toContain('paths:\n      - package.json');
+    expect(release).not.toContain('      - .github/workflows/native-release.yml');
+    expect(release).not.toContain('workflow_dispatch:');
+  });
+
+  it('recovers draft releases by immutable release ID instead of assuming a draft tag ref exists', () => {
+    expect(release).toContain('release_id: ${{ steps.release.outputs.release_id }}');
+    expect(release).toContain('gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp');
+    expect(release).toContain("select(.draft == true and .tag_name == $tag)");
+    expect(release).toContain('test "$DRAFT_AUTHOR" = "github-actions[bot]"');
+    expect(release).toContain('if [[ "$DRAFT_ASSET_COUNT" != "0" ]]; then');
+    expect(release).toContain('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"');
+    expect(release).toContain('-f target_commitish="$SOURCE_SHA"');
+    expect(release).not.toContain('gh release create "$TAG"');
+    expect(release).not.toContain('RELEASE_DRAFT="$(gh release view');
+  });
+
+  it('publishes only the verified draft ID and proves immutable tag and asset identity', () => {
+    expect(release).toContain('RELEASE_ID: ${{ needs.preflight.outputs.release_id }}');
+    expect(release).toContain('releases/$RELEASE_ID/assets?per_page=100');
+    expect(release).toContain('https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$name');
+    expect(release).toContain('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false --silent');
+    expect(release).toContain('test "$TAG_SHA" = "$SOURCE_SHA"');
+    expect(release).toContain('test "$PUBLISHED_BY_TAG_ID" = "$RELEASE_ID"');
+    expect(release).toContain('test "$IS_IMMUTABLE" = "true"');
+    expect(release).toContain('gh release verify "$TAG" --repo "$GITHUB_REPOSITORY"');
+    expect((release.match(/gh release verify-asset \"\$TAG\"/g) ?? []).length).toBe(4);
+  });
 });
