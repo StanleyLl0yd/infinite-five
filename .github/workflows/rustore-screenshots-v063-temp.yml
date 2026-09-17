@@ -34,7 +34,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-metrics
           script: |
-            set -euo pipefail
+            set -eu
             mkdir -p capture/raw capture/ui
 
             gh release download v0.6.3 \
