@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "prepare:icons": "node scripts/prepare-icon-assets.mjs",
     "test": "vitest run",
+    "test:native-config": "vitest run src/native-config.test.ts src/native-release-config.test.ts",
     "test:ai-lab": "cargo test --manifest-path crates/game-core/Cargo.toml expert_and_hard_self_play_remains_legal -- --nocapture && cargo test --manifest-path crates/game-core/Cargo.toml representative_expert_position_reports_search_diagnostics -- --nocapture",
     "test:core": "cargo test --manifest-path crates/game-core/Cargo.toml",
     "typecheck": "tsc --noEmit --pretty false",
