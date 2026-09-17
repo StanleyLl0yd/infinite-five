@@ -44,7 +44,10 @@ jobs:
           VERSION="$(node -p "require('./package.json').version")"
           TAG="v$VERSION"
           SOURCE_SHA="$(git rev-parse HEAD)"
-          TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
+          TAG_SHA=""
+          if ! TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null)"; then
+            TAG_SHA=""
+          fi
           RELEASE_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)"
           RELEASE_IMMUTABLE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable --jq .isImmutable 2>/dev/null || true)"
           SHOULD_BUILD=true
