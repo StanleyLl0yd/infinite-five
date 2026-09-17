@@ -188,9 +188,11 @@ describe('native application configuration', () => {
     expect(existsSync('.github/workflows/release.yml')).toBe(false);
     expect(release).toContain('group: native-release');
     expect(release).toContain('name: Prepare draft release');
-    expect(release).toContain('gh release create "$TAG"');
-    expect(release).toContain('--target "$SOURCE_SHA"');
-    expect(release).toContain('--draft');
+    expect(release).toContain('release_id: ${{ steps.release.outputs.release_id }}');
+    expect(release).toContain('gh api --method POST "repos/$GITHUB_REPOSITORY/releases"');
+    expect(release).toContain('-f target_commitish="$SOURCE_SHA"');
+    expect(release).toContain('-F draft=true');
+    expect(release).not.toContain('gh release create "$TAG"');
     expect(release.match(/ref: \$\{\{ needs\.preflight\.outputs\.source_sha \}\}/g)).toHaveLength(2);
   });
 
@@ -236,41 +238,50 @@ describe('native application configuration', () => {
     expect(android).toContain('if: always()');
   });
 
-  it('skips immutable published versions and rejects conflicting draft tags', () => {
+  it('skips immutable published versions and rejects conflicting or ambiguous draft state', () => {
     const release = read('.github/workflows/native-release.yml');
-    const published = release.indexOf('if [[ "$RELEASE_DRAFT" == "false" ]]');
-    const conflict = release.indexOf('elif [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]', published);
+    const published = release.indexOf('if PUBLISHED_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null)"; then');
+    const conflict = release.indexOf('if [[ -n "$TAG_SHA" && "$TAG_SHA" != "$SOURCE_SHA" ]]; then', published);
+    const draftDiscovery = release.indexOf('DRAFT_COUNT="$(jq --arg tag "$TAG"', conflict);
 
     expect(published).toBeGreaterThanOrEqual(0);
     expect(conflict).toBeGreaterThan(published);
-    expect(release.slice(published, conflict)).toContain('test "$RELEASE_IMMUTABLE" = "true"');
+    expect(draftDiscovery).toBeGreaterThan(conflict);
+    expect(release.slice(published, conflict)).toContain('test "$(jq -r \' .immutable\' <<<"$PUBLISHED_JSON")" = "true"'.replace("' .immutable'", "'.immutable'"));
     expect(release.slice(published, conflict)).toContain('SHOULD_BUILD=false');
-    expect(release).toContain('Draft or orphan release tag $TAG belongs to another source commit');
+    expect(release).toContain('Orphan release tag $TAG belongs to another source commit');
+    expect(release).toContain('Multiple draft releases claim $TAG; refusing ambiguous release recovery.');
+    expect(release).toContain('test "$DRAFT_AUTHOR" = "github-actions[bot]"');
+    expect(release).toContain('if [[ "$DRAFT_ASSET_COUNT" != "0" ]]; then');
+    expect(release).toContain('refusing to retarget it to $SOURCE_SHA');
   });
 
   it('stages and verifies the exact release asset set before immutable publication', () => {
     const release = read('.github/workflows/native-release.yml');
-    const upload = release.indexOf('gh release upload "$TAG"');
+    const upload = release.indexOf('upload_asset "release/$AAB"');
     const digestVerification = release.indexOf('verify_remote_asset()', upload);
-    const provenanceRecheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', digestVerification);
+    const prePublishVerification = release.indexOf('verify_draft_release', digestVerification);
     const finalDigestVerification = release.lastIndexOf('verify_remote_asset "release/$CHECKSUMS"');
-    const publish = release.indexOf('gh release edit "$TAG" --draft=false');
+    const publish = release.indexOf('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false --silent');
     const postPublishCheck = release.indexOf('TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"', publish);
 
     expect(release).toContain('test "$UNEXPECTED_ASSETS" = "0"');
-    expect(release).toContain('--clobber');
+    expect(release).toContain('delete_existing_asset()');
+    expect(release).toContain('https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$name');
     expect(upload).toBeGreaterThanOrEqual(0);
     expect(digestVerification).toBeGreaterThan(upload);
+    expect(prePublishVerification).toBeGreaterThan(digestVerification);
     expect(release).toContain('.digest")');
-    expect(release.match(/verify_remote_asset "release\/\$AAB"/g)).toHaveLength(2);
-    expect(release.match(/verify_remote_asset "release\/\$CHECKSUMS"/g)).toHaveLength(2);
-    expect(release).toContain("--jq '.assets | length')\" = \"4\"");
-    expect(provenanceRecheck).toBeGreaterThan(digestVerification);
-    expect(finalDigestVerification).toBeGreaterThan(provenanceRecheck);
-    expect(publish).toBeGreaterThan(finalDigestVerification);
+    expect(release.match(/verify_remote_asset "release\/\$AAB"/g)).toHaveLength(3);
+    expect(release.match(/verify_remote_asset "release\/\$CHECKSUMS"/g)).toHaveLength(3);
+    expect(release).toContain('assets?per_page=100" --jq \'length\')" = "4"');
+    expect(finalDigestVerification).toBeGreaterThan(prePublishVerification);
+    expect(publish).toBeGreaterThan(prePublishVerification);
     expect(postPublishCheck).toBeGreaterThan(publish);
-    expect(release).toContain('--json isImmutable --jq .isImmutable');
+    expect(release).toContain('IS_IMMUTABLE="$(jq -r \'.immutable\' <<<"$PUBLISHED_JSON")"');
     expect(release).toContain('test "$IS_IMMUTABLE" = "true"');
+    expect(release).toContain('test "$TAG_SHA" = "$SOURCE_SHA"');
+    expect(release).toContain('test "$PUBLISHED_BY_TAG_ID" = "$RELEASE_ID"');
     expect(release).toContain('gh release verify "$TAG" --repo "$GITHUB_REPOSITORY"');
     expect(release).toContain('gh release verify-asset "$TAG" "release/$AAB"');
     expect(release).toContain('gh release verify-asset "$TAG" "release/$CHECKSUMS"');
