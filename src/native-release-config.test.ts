@@ -21,16 +21,32 @@ describe('native release preflight', () => {
     expect(release).not.toContain('workflow_dispatch:');
   });
 
-  it('recovers draft releases by immutable release ID instead of assuming a draft tag ref exists', () => {
+  it('recovers exact-tag and stranded untagged drafts by immutable release ID', () => {
     expect(release).toContain('release_id: ${{ steps.release.outputs.release_id }}');
     expect(release).toContain('gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp');
-    expect(release).toContain("select(.draft == true and .tag_name == $tag)");
+    expect(release).toContain('.tag_name == $tag');
+    expect(release).toContain('.tag_name | startswith("untagged-")');
+    expect(release).toContain('.name == $name');
+    expect(release).toContain('.target_commitish == $source');
+    expect(release).toContain('.author.login == "github-actions[bot]"');
+    expect(release).toContain('(.assets | length) == 0');
     expect(release).toContain('test "$DRAFT_AUTHOR" = "github-actions[bot]"');
     expect(release).toContain('if [[ "$DRAFT_ASSET_COUNT" != "0" ]]; then');
     expect(release).toContain('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"');
+    expect(release).toContain('-f tag_name="$TAG"');
     expect(release).toContain('-f target_commitish="$SOURCE_SHA"');
     expect(release).not.toContain('gh release create "$TAG"');
     expect(release).not.toContain('RELEASE_DRAFT="$(gh release view');
+  });
+
+  it('restores tag and target together so GitHub cannot strand the recovered draft', () => {
+    const patchStart = release.indexOf('gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"');
+    const patchEnd = release.indexOf('--silent', patchStart);
+    const patch = release.slice(patchStart, patchEnd);
+
+    expect(patchStart).toBeGreaterThanOrEqual(0);
+    expect(patch).toContain('-f tag_name="$TAG"');
+    expect(patch).toContain('-f target_commitish="$SOURCE_SHA"');
   });
 
   it('publishes only the verified draft ID and proves immutable tag and asset identity', () => {
