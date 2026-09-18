@@ -127,7 +127,13 @@ try {
   });
 
   await waitFor(cdp, "document.readyState === 'complete' && !!document.querySelector('#board')");
+  await waitFor(cdp, "document.styleSheets.length > 0 && getComputedStyle(document.querySelector('#app')).display === 'flex'", 15000);
   await waitFor(cdp, "!document.querySelector('#modeSelect').disabled", 30000);
+  const cssState = await evaluate(cdp, "({sheets:document.styleSheets.length,appDisplay:getComputedStyle(document.querySelector('#app')).display,buttonRadius:getComputedStyle(document.querySelector('#settingsButton')).borderRadius})");
+  if (cssState.sheets < 1 || cssState.appDisplay !== 'flex' || cssState.buttonRadius === '0px') {
+    throw new Error('Production CSS is not applied: ' + JSON.stringify(cssState));
+  }
+  console.log('production CSS verified: ' + JSON.stringify(cssState));
   await sleep(800);
 
   await evaluate(cdp, "document.querySelector('#difficultySelect').value='expert'; document.querySelector('#difficultySelect').dispatchEvent(new Event('change',{bubbles:true})); true");
