@@ -17,7 +17,7 @@ adb shell wm density 420
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
-test "$(adb shell wm size | tr -d '\r')" = 'Physical size: 1080x1920'
+adb shell wm size | tr -d '\r' | grep -Fx 'Override size: 1080x1920'
 
 adb shell am force-stop "$PACKAGE"
 adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
