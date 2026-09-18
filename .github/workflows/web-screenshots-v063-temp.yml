@@ -1,0 +1,118 @@
+name: Infinite Five v0.6.3 web screenshots (temporary)
+
+on:
+  push:
+    branches:
+      - tooling/web-screenshots-v063-temp
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinite-five-v063-web-screenshots-temp
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture v0.6.3 web UI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Rust WebAssembly target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends binaryen
+          wasm-opt --version
+
+      - name: Build exact v0.6.3 web product
+        run: |
+          npm run build
+          test "$(node -p "require('./package.json').version")" = "0.6.3"
+
+      - name: Capture real product UI
+        run: |
+          set -euo pipefail
+          command -v google-chrome
+          mkdir -p capture/web "$RUNNER_TEMP/chrome-profile"
+
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory dist >"$RUNNER_TEMP/http.log" 2>&1 &
+          echo $! >"$RUNNER_TEMP/http.pid"
+
+          google-chrome \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --hide-scrollbars \
+            --window-size=1080,1920 \
+            --remote-debugging-address=127.0.0.1 \
+            --remote-debugging-port=9222 \
+            --user-data-dir="$RUNNER_TEMP/chrome-profile" \
+            about:blank >"$RUNNER_TEMP/chrome.log" 2>&1 &
+          echo $! >"$RUNNER_TEMP/chrome.pid"
+
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null; then
+              break
+            fi
+            sleep 0.5
+          done
+          curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null
+          curl --fail --silent http://127.0.0.1:4173/ >/dev/null
+
+          CAPTURE_URL=http://127.0.0.1:4173/ \
+          CAPTURE_OUT=capture/web \
+          node .github/scripts/capture-web-v063-temp.mjs
+
+      - name: Validate screenshot artifact
+        run: |
+          python3 - <<'PY'
+          import hashlib, pathlib, struct
+          root = pathlib.Path('capture/web')
+          expected = [
+              '01-ai-gameplay.png',
+              '02-settings.png',
+              '03-local-play.png',
+              '04-about.png',
+          ]
+          actual = sorted(p.name for p in root.glob('*.png'))
+          assert actual == expected, (actual, expected)
+          lines = []
+          for name in expected:
+              data = (root / name).read_bytes()
+              assert data[:8] == b'\x89PNG\r\n\x1a\n', name
+              width, height = struct.unpack('>II', data[16:24])
+              assert (width, height) == (1080, 1920), (name, width, height)
+              digest = hashlib.sha256(data).hexdigest()
+              lines.append(f'{digest}  {name}')
+              print(f'{name}: {width}x{height}, {len(data)} bytes, sha256:{digest}')
+          (root / 'SCREENSHOTS-SHA256.txt').write_text('\n'.join(lines) + '\n')
+          PY
+
+      - name: Upload screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Infinite-Five-v0.6.3-web-screenshots
+          path: capture/web/
+          if-no-files-found: warn
+          retention-days: 14
