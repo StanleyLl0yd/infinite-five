@@ -55,7 +55,9 @@ jobs:
           command -v google-chrome
           mkdir -p capture/web "$RUNNER_TEMP/chrome-profile"
 
-          python3 -m http.server 4173 --bind 127.0.0.1 --directory dist >"$RUNNER_TEMP/http.log" 2>&1 &
+          mkdir -p "$RUNNER_TEMP/site/infinite-five"
+          cp -a dist/. "$RUNNER_TEMP/site/infinite-five/"
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory "$RUNNER_TEMP/site" >"$RUNNER_TEMP/http.log" 2>&1 &
           echo $! >"$RUNNER_TEMP/http.pid"
 
           google-chrome \
@@ -77,9 +79,9 @@ jobs:
             sleep 0.5
           done
           curl --fail --silent http://127.0.0.1:9222/json/version >/dev/null
-          curl --fail --silent http://127.0.0.1:4173/ >/dev/null
+          curl --fail --silent http://127.0.0.1:4173/infinite-five/ >/dev/null
 
-          CAPTURE_URL=http://127.0.0.1:4173/ \
+          CAPTURE_URL=http://127.0.0.1:4173/infinite-five/ \
           CAPTURE_OUT=capture/web \
           node .github/scripts/capture-web-v063-temp.mjs
 
