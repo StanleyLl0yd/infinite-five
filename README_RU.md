@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.3-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.5-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@
 
 **Infinite Five** сохраняет классическую механику крестиков-ноликов, но убирает границы обычного поля: X и O ставятся на свободные клетки бесконечной сетки, а побеждает первый игрок, собравший пять или больше своих знаков подряд.
 
-Текущий опубликованный релиз: **v0.6.3** · Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.1 — первый нативный релиз, собранный из authoritative Rust game core после финального trust-boundary и release hardening. Rust проверяет историю партии, границы количества ходов/координат и внешние параметры AI-поиска; Rust-зависимости проверяются через RustSec; production web/native pipeline сохраняет WASM optimization, проверки утечек source/debug-артефактов, Android R8/resource shrinking и совместимость с 16 KB memory pages. Android остаётся на `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 и ARM-only ABI (`arm64-v8a` + `armeabi-v7a`). macOS остаётся universal DMG с ad-hoc подписью до появления Developer ID signing/notarization.
+Последний опубликованный нативный GitHub Release: **v0.6.3**; **v0.6.5 — пока кандидат в релизы, не опубликован**. Web + PWA · GitHub Pages + подписанные нативные release-файлы. v0.6.1 — первый нативный релиз, собранный из authoritative Rust game core после финального trust-boundary и release hardening. Rust проверяет историю партии, границы количества ходов/координат и внешние параметры AI-поиска; Rust-зависимости проверяются через RustSec; production web/native pipeline сохраняет WASM optimization, проверки утечек source/debug-артефактов, Android R8/resource shrinking и совместимость с 16 KB memory pages. Android остаётся на `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 и ARM-only ABI (`arm64-v8a` + `armeabi-v7a`). macOS остаётся universal DMG с ad-hoc подписью до появления Developer ID signing/notarization.
 
 ## 🎯 Правила
 
@@ -127,7 +127,7 @@ Canvas-поле можно сфокусировать и полностью ис
 
 Стабильный Application ID / Bundle ID нативного приложения — **`com.sl.infinitefive`**. Конфигурация Tauri, Android Gradle namespace/applicationId, Kotlin package paths, тесты, workflows и документация должны оставаться синхронизированы с этим идентификатором.
 
-Планируемый порядок публичного распространения: сначала Android через **RuStore**, затем macOS с возможностью прямого распространения, а iOS и дополнительные Android-магазины — по мере появления необходимого доступа. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры, проверка победы и AI остаются общими в Rust core и не дублируются в TypeScript или платформенном коде.
+**Infinite Five v0.6.3 уже опубликована в [RuStore](https://www.rustore.ru/catalog/app/com.sl.infinitefive)**. Следующий этап — Google Play; требования к ключам подписи, AAB и тестированию описаны в [`docs/GOOGLE_PLAY.md`](docs/GOOGLE_PLAY.md). Прямое распространение macOS остаётся доступным, iOS рассматривается отдельно. Нативные release-файлы прикладываются к соответствующему GitHub Release вместе с SHA-256 checksums. APK/AAB подписываются из GitHub Secrets; текущий macOS DMG имеет ad-hoc подпись и пока не нотарифицирован Developer ID. Kotlin/Swift-код используется только для платформенных интеграций: lifecycle, share, haptics, подпись, store updates и подобное. Правила игры, проверка победы и AI остаются общими в Rust core и не дублируются в TypeScript или платформенном коде.
 
 Подробности, идентификатор приложения и требования к проверке нативных сборок — в [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md).
 
@@ -281,9 +281,9 @@ Push и pull request автоматически проходят GitHub Actions:
 
 Следующие приоритеты:
 
-- завершить RuStore AAB signing enrollment, smoke-тест release-сборки на реальном устройстве, подготовить медиаматериалы/формы и отправить v0.6.0 на модерацию;
+- подготовить подписанный AAB версии v0.6.5 и настроить Play App Signing с сохранением совместимости установленной версии RuStore;
 - подготовить прямое распространение macOS, а при наличии доступа — Developer ID signing и notarization;
-- добавить Google Play и iOS/App Store после появления необходимого developer-доступа;
+- завершить тестовые треки Google Play, оформление карточки, декларации и получение доступа к Production; iOS/App Store рассмотреть отдельно;
 - продолжать пополнять набор AI-регрессий реальными позициями и оптимизировать только подтверждённые узкие места;
 - позже — опциональный онлайн-режим по ссылке на комнату между поддерживаемыми платформами без изменения базовых правил.
 
