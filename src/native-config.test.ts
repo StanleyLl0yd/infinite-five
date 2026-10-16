@@ -152,6 +152,21 @@ describe('native application configuration', () => {
     expect(verifier).toContain("verify_native_assets \"$APK\" 'assets/'");
   });
 
+  it('validates the packaged AAB manifest and matching APK before store submission', () => {
+    const verifier = read('scripts/verify-android-native.sh');
+
+    expect(verifier).toContain('dump manifest --bundle="$AAB"');
+    expect(verifier).toContain("BUNDLE_VALUE '/manifest/@package'");
+    expect(verifier).toContain("BUNDLE_VALUE '/manifest/uses-sdk/@android:minSdkVersion'");
+    expect(verifier).toContain("BUNDLE_VALUE '/manifest/uses-sdk/@android:targetSdkVersion'");
+    expect(verifier).toContain("BUNDLE_VALUE '/manifest/@android:versionCode'");
+    expect(verifier).toContain('AAB_VERSION_CODE > 0 && AAB_VERSION_CODE <= 2100000000');
+    expect(verifier).toContain('test "$AAB_VERSION_CODE" = "$APK_VERSION_CODE"');
+    expect(verifier).toContain('test "$AAB_VERSION_NAME" = "$APK_VERSION_NAME"');
+    expect(verifier).toContain('android:(debuggable|testOnly|usesCleartextTraffic)="true"');
+    expect(verifier).toContain("uses-permission: name='android.permission.INTERNET'");
+  });
+
   it('pins Android package verification to the AGP 8.11 Build Tools baseline', () => {
     const native = read('.github/workflows/native.yml');
     const release = read('.github/workflows/native-release.yml');

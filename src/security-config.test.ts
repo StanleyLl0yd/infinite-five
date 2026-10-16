@@ -5,13 +5,13 @@ const SEMGREP_IMAGE =
   'semgrep/semgrep:1.172.0@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b';
 const SECURITY_AUDIT_URL = 'https://semgrep.dev/c/p/security-audit';
 const SECURITY_AUDIT_SHA256 = [
-  '5509b33efc0c08e2134ccb76f2c7172065f7ba4a89f28799661029e274c306c7',
-  'b109a039df712f30c6d3e25e1e8358053fd0f1c91b92d0e8d2871cd141fe602f',
+  '83d7cde9157b3c79cc5cfaea26e7bd2ba9c740f2ba07635ad475b2585556c32d',
+  '3e280f9214fb2a533fc94c60e318239ebaade31908cd4aa527fe66c75e54dd9d',
 ] as const;
 const SECRETS_URL = 'https://semgrep.dev/c/p/secrets';
 const RULESET_B_SHA256 = [
-  '139b35ad3442bc83d1f0864db82fa4fdc7e1f1ee4b5ac872bfbeb604c82c6518',
-  '7c0b0163d7cbfe44f16cec78556662655bedeec1d41c6e091ddef5d85c1d5eff',
+  'd1afb323ed493cf9d3ee5044447b989debf033b2b7cc8208662a81b8c162c66a',
+  'f680ede6ba7af3e63a046c2f2c4d117181630b5308be16b22a48a82636d61b6b',
 ] as const;
 const GLIB_UNSOUND_ADVISORY = 'RUSTSEC-2024-0429';
 const GLIB_UNSOUND_EXCEPTION_EXPIRES = '2026-12-31';
@@ -31,7 +31,7 @@ describe('security workflow supply-chain pins', () => {
     for (const digest of SECURITY_AUDIT_SHA256) expect(workflow).toContain(digest);
     expect(workflow).toContain(SECRETS_URL);
     for (const digest of RULESET_B_SHA256) expect(workflow).toContain(digest);
-    expect(workflow).toContain('DUAL_BASELINE_EXPIRES = date(2026, 9, 23)');
+    expect(workflow).toContain('DUAL_BASELINE_EXPIRES = date(2026, 10, 23)');
     expect(workflow).toContain('if date.today() > DUAL_BASELINE_EXPIRES:');
     expect(workflow).toContain('actual = hashlib.sha256(data).hexdigest()');
     expect(workflow).toContain('if actual not in expected:');

@@ -108,3 +108,34 @@ if [[ ! -f "$BUNDLETOOL" ]]; then
 fi
 printf '%s  %s\n' 'a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29' "$BUNDLETOOL" | sha256sum --check --status
 java -jar "$BUNDLETOOL" dump config --bundle="$AAB" | grep -F 'PAGE_ALIGNMENT_16K' >/dev/null
+
+# Validate the actual release manifests, not just the Gradle source settings.
+BUNDLE_MANIFEST="$(java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB")"
+BUNDLE_VALUE() {
+  java -jar "$BUNDLETOOL" dump manifest --bundle="$AAB" --xpath="$1"
+}
+test "$(BUNDLE_VALUE '/manifest/@package')" = 'com.sl.infinitefive'
+test "$(BUNDLE_VALUE '/manifest/uses-sdk/@android:minSdkVersion')" = '26'
+test "$(BUNDLE_VALUE '/manifest/uses-sdk/@android:targetSdkVersion')" = '36'
+AAB_VERSION_CODE="$(BUNDLE_VALUE '/manifest/@android:versionCode')"
+[[ "$AAB_VERSION_CODE" =~ ^[0-9]+$ ]]
+(( AAB_VERSION_CODE > 0 && AAB_VERSION_CODE <= 2100000000 ))
+AAB_VERSION_NAME="$(BUNDLE_VALUE '/manifest/@android:versionName')"
+test -n "$AAB_VERSION_NAME"
+
+AAPT="$BUILD_TOOLS_DIR/aapt"
+test -x "$AAPT"
+BADGING="$("$AAPT" dump badging "$APK")"
+grep -F "package: name='com.sl.infinitefive'" <<<"$BADGING" >/dev/null
+grep -F "sdkVersion:'26'" <<<"$BADGING" >/dev/null
+grep -F "targetSdkVersion:'36'" <<<"$BADGING" >/dev/null
+APK_VERSION_CODE="$(sed -n "s/.*versionCode='\\([0-9][0-9]*\\)'.*/\\1/p" <<<"$BADGING" | head -n 1)"
+APK_VERSION_NAME="$(sed -n "s/.*versionName='\\([^']*\\)'.*/\\1/p" <<<"$BADGING" | head -n 1)"
+test "$AAB_VERSION_CODE" = "$APK_VERSION_CODE"
+test "$AAB_VERSION_NAME" = "$APK_VERSION_NAME"
+
+if grep -Eq 'android:(debuggable|testOnly|usesCleartextTraffic)="true"' <<<"$BUNDLE_MANIFEST" ||
+  grep -F "uses-permission: name='android.permission.INTERNET'" <<<"$BADGING" >/dev/null; then
+  echo 'Store release is debuggable, test-only, permits cleartext, or requests Internet access.' >&2
+  exit 1
+fi
