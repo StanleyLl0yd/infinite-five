@@ -12,7 +12,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-2563EB?labelColor=111827&logo=githubpages&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![PWA](https://img.shields.io/badge/PWA-installable-E11D48?labelColor=111827&logo=pwa&logoColor=ffffff)](https://stanleyll0yd.github.io/infinite-five/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-2563EB?labelColor=111827&logo=typescript&logoColor=ffffff)](https://www.typescriptlang.org/)
-[![Source version](https://img.shields.io/badge/source-0.6.3-16A34A?labelColor=111827)](package.json)
+[![Source version](https://img.shields.io/badge/source-0.6.5-16A34A?labelColor=111827)](package.json)
 [![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-E11D48?labelColor=111827)](LICENSE)
 
 [![English](https://img.shields.io/badge/lang-EN-2563EB?labelColor=111827)](README.md)
@@ -26,7 +26,7 @@ A minimalist five-in-a-row game on a practically infinite board — in the brows
 
 **Infinite Five** keeps the familiar X-and-O idea but removes the limits of a fixed board. Players place marks on an unbounded grid, and the first player to connect five or more marks wins.
 
-Current published release: **v0.6.3** · Web + PWA · GitHub Pages + signed native release artifacts. v0.6.1 was the first native release built from the authoritative Rust game core after final trust-boundary and release hardening. Rust validates saved histories, move/coordinate bounds and external AI search limits; Rust dependencies are audited with RustSec; production web/native pipelines keep WASM optimization, source/debug leakage checks, Android R8/resource shrinking and 16 KB page compatibility. Android remains `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 and ARM-only (`arm64-v8a` + `armeabi-v7a`). macOS remains an ad-hoc signed universal DMG until Developer ID signing/notarization is available.
+Current published native GitHub release: **v0.6.3**; **v0.6.5 is a source-level release candidate, not yet published**. Web + PWA · GitHub Pages + signed native release artifacts. v0.6.1 was the first native release built from the authoritative Rust game core after final trust-boundary and release hardening. Rust validates saved histories, move/coordinate bounds and external AI search limits; Rust dependencies are audited with RustSec; production web/native pipelines keep WASM optimization, source/debug leakage checks, Android R8/resource shrinking and 16 KB page compatibility. Android remains `minSdk 26`, `targetSdk 36`, `compileSdk 36`, NDK r29 and ARM-only (`arm64-v8a` + `armeabi-v7a`). macOS remains an ad-hoc signed universal DMG until Developer ID signing/notarization is available.
 
 ## 🎯 Rules
 
@@ -127,7 +127,7 @@ The same TypeScript/Vite UI is packaged natively with **Tauri 2**, while board r
 
 The stable native Application ID / Bundle ID is **`com.sl.infinitefive`**. Tauri configuration, Android Gradle namespace/applicationId, Kotlin package paths, tests, workflows, and documentation are kept aligned with that identity.
 
-The planned public distribution order is Android through **RuStore** first, macOS direct distribution as another native target, and iOS or additional Android stores when the required distribution access is available. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates. Game rules, win detection and AI remain shared in the Rust core instead of being duplicated in TypeScript or platform code.
+Infinite Five **v0.6.3 is publicly available in [RuStore](https://www.rustore.ru/catalog/app/com.sl.infinitefive)**. A Google Play release candidate is being prepared; see [`docs/GOOGLE_PLAY.md`](docs/GOOGLE_PLAY.md) for existing-key migration, signed bundle checks and store testing. macOS direct distribution remains supported, with iOS optional later. Native release files are attached to the matching GitHub Release with SHA-256 checksums. Android APK/AAB files are signed from GitHub Secrets; the current macOS DMG is ad-hoc signed and is not Developer ID notarized. Native Kotlin/Swift code stays limited to platform integration such as lifecycle, sharing, haptics, signing, and store updates. Game rules, win detection and AI remain shared in the Rust core instead of being duplicated in TypeScript or platform code.
 
 See [`docs/CROSS_PLATFORM.md`](docs/CROSS_PLATFORM.md) for target architecture, build rules, identifiers, and native validation gates.
 
@@ -281,9 +281,9 @@ Completed in **v0.6.0**: mobile/touch UX hardening, cancellation-safe gestures, 
 
 Next priorities:
 
-- complete RuStore AAB signing enrollment, real-device release smoke testing, store media/forms, and submit v0.6.0 for moderation;
+- prepare the signed v0.6.5 Android AAB and configure Google Play App Signing to preserve compatibility with existing RuStore installations;
 - prepare macOS direct distribution with Developer ID signing/notarization when available;
-- add Google Play and iOS/App Store distribution when the required developer access is available;
+- complete the Google Play test tracks, required listing/consent declarations, and production access; evaluate iOS/App Store separately;
 - continue adding real-player AI regression positions and measured performance follow-up;
 - later, optional room-link online multiplayer across supported platforms without changing the core rules.
 
