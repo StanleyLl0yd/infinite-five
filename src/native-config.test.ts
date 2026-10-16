@@ -167,6 +167,14 @@ describe('native application configuration', () => {
     expect(verifier).toContain("uses-permission: name='android.permission.INTERNET'");
   });
 
+  it('enforces Tauri semver-derived Play versionCode in the built AAB', () => {
+    const verifier = read('scripts/verify-android-native.sh');
+    expect(verifier).toContain('EXPECTED_VERSION="$(node -p "require(\'./package.json\').version")"');
+    expect(verifier).toContain('major * 1000000 + minor * 1000 + patch');
+    expect(verifier).toContain('test "$AAB_VERSION_NAME" = "$EXPECTED_VERSION"');
+    expect(verifier).toContain('test "$AAB_VERSION_CODE" = "$EXPECTED_VERSION_CODE"');
+  });
+
   it('pins Android package verification to the AGP 8.11 Build Tools baseline', () => {
     const native = read('.github/workflows/native.yml');
     const release = read('.github/workflows/native-release.yml');

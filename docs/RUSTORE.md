@@ -2,9 +2,9 @@
 
 ## Status
 
-Infinite Five v0.6.3 is the current RuStore release candidate. The signed GitHub Release is published from source commit `c434bf7c8d4734cb4cc26bab3350ddeb74c81429`; its primary Android AAB, supplemental APK and universal macOS DMG have passed the controlled release workflow and are attached together with SHA-256 checksums. The Android application uses the stable package identity `com.sl.infinitefive`.
+Infinite Five v0.6.3 is **published in RuStore** (first store release September 7, 2026): https://www.rustore.ru/catalog/app/com.sl.infinitefive. The signed GitHub Release is published from source commit `c434bf7c8d4734cb4cc26bab3350ddeb74c81429`; its primary Android AAB, supplemental APK and universal macOS DMG have passed the controlled release workflow and are attached together with SHA-256 checksums. The Android application uses the stable package identity `com.sl.infinitefive`.
 
-The remaining first-publication work is intentionally a RuStore Console / real-device step because it requires the developer account, store forms, AAB signing enrollment and real release screenshots. Repository automation must not store RuStore credentials or private signing material. Google Play preparation is now tracked separately in [GOOGLE_PLAY.md](GOOGLE_PLAY.md); neither store submission is complete merely because the repository can build an AAB.
+RuStore first-publication enrollment and listing are complete. Keep the historical v0.6.3 release/signing instructions below for reproducibility and future updates. The next distribution task is Google Play: [GOOGLE_PLAY.md](GOOGLE_PLAY.md). The already published RuStore app-signing identity must be verified against the **installed distribution APK** before choosing the Play App Signing key. Store signing material remains private.
 
 Official RuStore references used for the release checklist:
 

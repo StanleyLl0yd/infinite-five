@@ -7,18 +7,20 @@ This is a **pre-publication checklist**, not proof of an accepted Google Play re
 - Source application ID: `com.sl.infinitefive`. Keep this identity unchanged.
 - Android configuration: `minSdk 26`, `compileSdk 36`, `targetSdk 36`, ARM64 + ARMv7, 16 KB page-size release checks.
 - Controlled release workflow signs the Android App Bundle (AAB) with the upload-key alias. The APK is a **supplemental direct-install artifact**, not the Play upload.
-- Current source version: `0.6.4`. The latest **published** GitHub Release is `v0.6.3`; the `0.6.4` native release is not yet published. Do not use a draft release as proof of an accepted/signed artifact.
+- The developer confirmed Play Console account, device and phone verification is complete. **App listing creation, Play App Signing enrollment, store testing and release approval are separate tasks.**
+- Infinite Five **0.6.3 is publicly available in RuStore** at https://www.rustore.ru/catalog/app/com.sl.infinitefive (first publication: September 7, 2026). Its successful RuStore release is not proof of a Google Play signing enrollment.
+- Current source version: `0.6.4`, with Tauri-derived Android `versionCode` `6004`. The latest published GitHub Release remains `v0.6.3`; `v0.6.4` is only an empty draft. Do not upload a draft, CI verification artifact or unsigned AAB to Play.
 - Open release-recovery PR #93 and issue #48 need proper resolution; do not silently bypass the immutable-release gate.
-- CI/security failures observed on 2026-10-12: npm audit reports high-severity transitive dependencies, and the time-limited Semgrep rule digest baseline expired. A passing source build, signed AAB, and on-device acceptance are required **after** these are resolved.
-- Play Console operations, account verification, app-key enrollment and device testing require the developer's own account/device. Nothing in this document grants production access.
+- The dependency and Semgrep baseline fixes were merged in PR #100. Exact-main CI, Security, CodeQL, Native and Pages passed on `5d7c7990298bcee8d79f9fcf46126884b5b36011`. Subsequent release source commits must pass their own required checks and signed AAB verification.
+- The developer's Play Console verification is **complete**; it must not be treated as an outstanding blocker. App-key enrollment and any mandatory closed testing remain Play Console/device actions. No Play upload has been asserted.
 
 ## 1. Package and signing identity
 
 1. In Play Console, create **Game** / a suitable board or strategy category with free distribution and package ID `com.sl.infinitefive`. Do not create a second application ID to solve signing problems.
 2. Use **Play App Signing**. The AAB must be signed with the existing upload certificate from `.github/android-signing-identities.json` (`uploadCertificateSha256`). Its current reviewed fingerprint is `f02571c40741e2cb071564f5b63fd3dc38a875d0eda11a8c42269ed635bc2a58`. Confirm the certificate on the **actual signed AAB** before uploading and again in Play Console.
-3. **Cross-store signing decision, before first Play rollout:** Google normally generates the Play app-signing key. If that key's certificate differs from the key signing the RuStore/direct APK for the same `com.sl.infinitefive`, Android **cannot update an existing installation across those stores without an uninstall**. If cross-store update compatibility is required, explore importing the *existing* application-signing key into Play App Signing **before** release, following the private PEPK enrollment instructions in Play Console. This is not the upload key. Do not assume sharing a package name is sufficient.
+3. **Cross-store signing must be decided before the first Play rollout.** Verify the *distribution APK signing certificate* of the version already installed from RuStore, not merely the certificate of the AAB that was uploaded there. Compare its SHA-256 with `applicationSigningCertificateSha256`. To preserve seamless updates in both directions, provision that **same existing RuStore app-signing private key** in Play App Signing using the console's private PEPK procedure (if eligible). Keep the AAB **upload key** concept separate even if the repository currently uses one certificate for both roles. If Play instead distributes APKs signed with Google's unrelated default key, Android cannot update the RuStore installation in place under the normal signing-identity rules; users would have to reinstall and locally saved data may be lost. The Google default and new hybrid-signing features may differ from the imported-key option. **Never upload/export a signing private key through this repository or chat.**
 4. Keep keystores, aliases' passwords, private signing keys and PEPK exports **out of Git, Actions artifacts and public releases**. The existing GitHub workflow can produce the upload-key-signed AAB from release secrets; do not regenerate keys merely for Play.
-5. Use a monotonically increasing positive `versionCode` for every subsequent Play upload, and verify its exact value from the built AAB. Changing `versionName` alone is insufficient.
+5. Use monotonically increasing `versionCode`: Tauri derives `major * 1000000 + minor * 1000 + patch` (`0.6.3` = `6003`, `0.6.4` = `6004`). The native artifact verifier also checks it against `package.json`; do not use auto-incremented build-local values or reuse a previously uploaded version code.
 
 Google references:
 - https://support.google.com/googleplay/android-developer/answer/9842756
@@ -111,7 +113,7 @@ https://support.google.com/googleplay/android-developer/answer/10787469
 
 ## 6. Account, testing and rollout
 
-1. Complete pending **Android device** and **phone number** verification in Play Console. For personal accounts, device verification precedes phone verification.
+1. **Completed:** Developer identity, Android device and phone verification in Play Console. No further account-verification instructions needed.
 2. Upload the validated signed AAB to **internal testing**; resolve Console warnings and launch/test on devices.
 3. New personal developer accounts created after November 13, 2023 must have at least **12 opted-in testers continuously for 14 days** in a **closed test**, then apply for production access. Internal testing alone does not meet this gate.
 4. Complete all app-content declarations and store listing assets, review approval statuses and respond to policy/review feedback.

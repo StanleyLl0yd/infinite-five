@@ -44,6 +44,7 @@ jobs:
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           TAG="v$VERSION"
+          RELEASE_NAME="Infinite Five $TAG"
           SOURCE_SHA="$(git rev-parse HEAD)"
           SHOULD_BUILD=true
           RELEASE_ID=""
@@ -69,26 +70,35 @@ jobs:
             fi
 
             RELEASES_FILE="$RUNNER_TEMP/releases.json"
+            DRAFTS_FILE="$RUNNER_TEMP/recoverable-drafts.json"
             gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp > "$RELEASES_FILE"
-            DRAFT_COUNT="$(jq --arg tag "$TAG" '[.[][] | select(.draft == true and .tag_name == $tag)] | length' "$RELEASES_FILE")"
+            DRAFT_COUNT="$(jq --arg tag "$TAG" --arg name "$RELEASE_NAME" --arg source "$SOURCE_SHA" \
+              '[.[][] | select(.draft == true and ((.tag_name == $tag) or (((.tag_name | startswith("untagged-")) and .name == $name and .target_commitish == $source and .author.login == "github-actions[bot]" and (.assets | length) == 0))))] | length' \
+              "$RELEASES_FILE")"
+            jq --arg tag "$TAG" --arg name "$RELEASE_NAME" --arg source "$SOURCE_SHA" \
+              '[.[][] | select(.draft == true and ((.tag_name == $tag) or (((.tag_name | startswith("untagged-")) and .name == $name and .target_commitish == $source and .author.login == "github-actions[bot]" and (.assets | length) == 0))))]' \
+              "$RELEASES_FILE" > "$DRAFTS_FILE"
             if [[ "$DRAFT_COUNT" -gt 1 ]]; then
               echo "Multiple draft releases claim $TAG; refusing ambiguous release recovery." >&2
               exit 1
             fi
 
             if [[ "$DRAFT_COUNT" == "1" ]]; then
-              RELEASE_ID="$(jq -r --arg tag "$TAG" '.[][] | select(.draft == true and .tag_name == $tag) | .id' "$RELEASES_FILE")"
-              DRAFT_TARGET="$(jq -r --arg tag "$TAG" '.[][] | select(.draft == true and .tag_name == $tag) | .target_commitish' "$RELEASES_FILE")"
-              DRAFT_ASSET_COUNT="$(jq -r --arg tag "$TAG" '.[][] | select(.draft == true and .tag_name == $tag) | (.assets | length)' "$RELEASES_FILE")"
-              DRAFT_AUTHOR="$(jq -r --arg tag "$TAG" '.[][] | select(.draft == true and .tag_name == $tag) | .author.login' "$RELEASES_FILE")"
+              DRAFT_JSON="$(jq -c '.[0]' "$DRAFTS_FILE")"
+              RELEASE_ID="$(jq -r '.id' <<<"$DRAFT_JSON")"
+              DRAFT_TAG="$(jq -r '.tag_name' <<<"$DRAFT_JSON")"
+              DRAFT_TARGET="$(jq -r '.target_commitish' <<<"$DRAFT_JSON")"
+              DRAFT_ASSET_COUNT="$(jq -r '(.assets | length)' <<<"$DRAFT_JSON")"
+              DRAFT_AUTHOR="$(jq -r '.author.login' <<<"$DRAFT_JSON")"
               test "$DRAFT_AUTHOR" = "github-actions[bot]"
 
-              if [[ "$DRAFT_TARGET" != "$SOURCE_SHA" ]]; then
+              if [[ "$DRAFT_TAG" != "$TAG" || "$DRAFT_TARGET" != "$SOURCE_SHA" ]]; then
                 if [[ "$DRAFT_ASSET_COUNT" != "0" ]]; then
                   echo "Draft $TAG already has assets for source $DRAFT_TARGET; refusing to retarget it to $SOURCE_SHA." >&2
                   exit 1
                 fi
                 gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                  -f tag_name="$TAG" \
                   -f target_commitish="$SOURCE_SHA" \
                   --silent
               fi
@@ -96,7 +106,7 @@ jobs:
               CREATED_JSON="$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
                 -f tag_name="$TAG" \
                 -f target_commitish="$SOURCE_SHA" \
-                -f name="Infinite Five $TAG" \
+                -f name="$RELEASE_NAME" \
                 -F draft=true \
                 -F prerelease=false \
                 -F generate_release_notes=true)"
@@ -106,7 +116,7 @@ jobs:
             DRAFT_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
             test "$(jq -r '.tag_name' <<<"$DRAFT_JSON")" = "$TAG"
             test "$(jq -r '.target_commitish' <<<"$DRAFT_JSON")" = "$SOURCE_SHA"
-            test "$(jq -r '.name' <<<"$DRAFT_JSON")" = "Infinite Five $TAG"
+            test "$(jq -r '.name' <<<"$DRAFT_JSON")" = "$RELEASE_NAME"
             test "$(jq -r '.draft' <<<"$DRAFT_JSON")" = "true"
             test "$(jq -r '.prerelease' <<<"$DRAFT_JSON")" = "false"
             test "$(jq -r '.immutable' <<<"$DRAFT_JSON")" = "false"
