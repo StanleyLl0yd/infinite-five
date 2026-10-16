@@ -2,7 +2,7 @@
 
 Infinite Five keeps one TypeScript/Vite application layer and one authoritative Rust game core, with Tauri 2 as the native application shell. The browser/PWA build remains a first-class target: the Rust core is compiled to WebAssembly for web use, while native packages call the same Rust implementation directly through Tauri. Rendering, replay, history and localization remain shared TypeScript code rather than platform-specific implementations.
 
-Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. Release v0.6.1 moves authoritative game rules and AI into the shared Rust core. Release v0.6.2 hardens extreme-coordinate validation and raster icon generation, and v0.6.3 fixes Android launcher resource precedence. RuStore submission is the active Android distribution step; Google Play and App Store remain deferred until developer access is available, while macOS Developer ID notarization still requires Apple signing access.
+Release v0.5.0 established the Tauri cross-platform foundation and native build validation. Release v0.5.1 added the signed native release pipeline. Release v0.5.2 hardened release-source verification, minimized the production Android manifest for RuStore, synchronized version metadata, and added the store publication/privacy package. Release v0.5.3 added the localized About surface. Release v0.5.4 moves Android to `minSdk 26`, target/compile API 36 and NDK r29, makes the signed AAB the primary Android release artifact, restricts production packages to `arm64-v8a` + `armeabi-v7a`, and enforces 16 KB native package compatibility. Release v0.6.0 improves mobile/touch interaction and platform Back/Escape handling while preserving the same native identity, Android baseline and release artifact contract. Release v0.6.1 moves authoritative game rules and AI into the shared Rust core. Release v0.6.2 hardens extreme-coordinate validation and raster icon generation, and v0.6.3 fixes Android launcher resource precedence. RuStore remains an Android distribution path; Google Play publication preparation is tracked in [GOOGLE_PLAY.md](GOOGLE_PLAY.md) and requires Play Console enrollment, testing and a verified signed AAB. Apple App Store distribution and macOS Developer ID notarization still require Apple signing access.
 
 ## Target model
 
@@ -10,7 +10,7 @@ Release v0.5.0 established the Tauri cross-platform foundation and native build 
 Shared TypeScript/Vite UI + Rust game core
 ├── Web / PWA -> Rust core as WebAssembly -> GitHub Pages
 └── Tauri 2 -> Rust core directly
-    ├── Android -> RuStore first, Google Play later if available
+    ├── Android -> RuStore + Google Play (after Play Console acceptance)
     ├── macOS -> direct distribution first, store distribution optional later
     └── iOS -> TestFlight / App Store when distribution access is available
 ```
@@ -59,7 +59,7 @@ npm run tauri:android:build
 
 Android platform files are generated under `src-tauri/gen/android`. Tauri icons are generated from the canonical `branding/infinite-five-icon-master.png` raster master.
 
-## Android and RuStore
+## Android distribution (RuStore and Google Play)
 
 Android is the first planned native distribution target. The production application should be a self-contained APK/AAB with bundled frontend assets and offline gameplay. Its fixed RuStore application identity is `com.sl.infinitefive`.
 
