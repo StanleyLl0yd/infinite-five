@@ -121,7 +121,10 @@ AAB_VERSION_CODE="$(BUNDLE_VALUE '/manifest/@android:versionCode')"
 [[ "$AAB_VERSION_CODE" =~ ^[0-9]+$ ]]
 (( AAB_VERSION_CODE > 0 && AAB_VERSION_CODE <= 2100000000 ))
 AAB_VERSION_NAME="$(BUNDLE_VALUE '/manifest/@android:versionName')"
-test -n "$AAB_VERSION_NAME"
+EXPECTED_VERSION="$(node -p "require('./package.json').version")"
+EXPECTED_VERSION_CODE="$(node -e "const [major, minor, patch] = require('./package.json').version.split('.').map(Number); console.log(major * 1000000 + minor * 1000 + patch)")"
+test "$AAB_VERSION_NAME" = "$EXPECTED_VERSION"
+test "$AAB_VERSION_CODE" = "$EXPECTED_VERSION_CODE"
 
 AAPT="$BUILD_TOOLS_DIR/aapt"
 test -x "$AAPT"
